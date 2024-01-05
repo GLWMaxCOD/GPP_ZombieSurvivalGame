@@ -21,6 +21,7 @@ namespace Elite
 		//=== Constructors ===
 		Vector2() = default;
 		Vector2(float _x, float _y) :x(_x), y(_y) {};
+		Vector2(int _x, int _y) :x(static_cast<float>(_x)), y(static_cast<float>(_y)) {};
 
 		//=== Vector Conversions Functions ===
 #ifdef USE_BOX2D

@@ -1,9 +1,18 @@
 #pragma once
 
-class Behaviour
+namespace BT
 {
-public:
+	enum class State;
+}
 
-private:
+class Blackboard;
 
-};
+namespace BT_Actions
+{
+	BT::State FindAHouse(Blackboard* pBlackboard);
+	BT::State GoToDestination(Blackboard* pBlackboard);
+}
+
+namespace BT_Conditions
+{
+}

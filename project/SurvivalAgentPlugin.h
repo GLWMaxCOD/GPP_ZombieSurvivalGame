@@ -1,7 +1,11 @@
 #pragma once
-#include "BehaviourTree.h"
 #include "IExamPlugin.h"
 #include "Exam_HelperStructs.h"
+
+namespace BT
+{
+	class BehaviourTree;
+}
 
 class Blackboard;
 class IBaseInterface;
@@ -37,8 +41,8 @@ private:
 
 	UINT m_InventorySlot = 0;
 
-	Blackboard* CreateBlackboard();
-	void UpdateBlackboard() const;
+	Blackboard* CreateBlackboard() const;
+	void UpdateBlackboard(const SteeringPlugin_Output& steering) const;
 	BT::BehaviourTree* m_BehaviourTree;
 };
 

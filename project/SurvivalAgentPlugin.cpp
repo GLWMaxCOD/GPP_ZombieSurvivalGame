@@ -2,6 +2,8 @@
 #include "SurvivalAgentPlugin.h"
 #include "IExamInterface.h"
 #include "BlackBoard.h"
+#include "BehaviourTree.h"
+#include "Behaviour.h" 
 
 #undef NDEBUG
 #include <cassert>
@@ -31,23 +33,34 @@ void SurvivalAgentPlugin::Initialize(IBaseInterface* pInterface, PluginInfo& inf
 
 	Blackboard* pBlackboard{ CreateBlackboard() };
 
-	m_BehaviourTree = new BT::BehaviourTree(pBlackboard, {});
+	m_BehaviourTree = new BT::BehaviourTree(pBlackboard, 
+		new BT::Selector({
+			new BT::PartialSequence({
+				new BT::Action(BT_Actions::FindAHouse), 
+				new BT::Action(BT_Actions::GoToDestination)
+			})
+		}));
 }
 
-Blackboard* SurvivalAgentPlugin::CreateBlackboard()
+Blackboard* SurvivalAgentPlugin::CreateBlackboard() const
 {
 	Blackboard* pBlackboard = new Blackboard();
 
-	pBlackboard->AddData("Player position", m_pInterface->Agent_GetInfo().Position);
+	//pBlackboard->AddData("Player position", m_pInterface->Agent_GetInfo().Position);
+	pBlackboard->AddData("Interface", m_pInterface);
+	pBlackboard->AddData("Steering", SteeringPlugin_Output{});
+	pBlackboard->AddData("Target", m_Target);
 
 	return pBlackboard;
 }
 
-void SurvivalAgentPlugin::UpdateBlackboard() const
+void SurvivalAgentPlugin::UpdateBlackboard(const SteeringPlugin_Output& steering) const
 {
 	Blackboard* pBlackboard{ m_BehaviourTree->GetBlackboard() };
 
-	pBlackboard->ChangeData("Player position", m_pInterface->Agent_GetInfo().Position);
+	//pBlackboard->ChangeData("Player position", m_pInterface->Agent_GetInfo().Position);
+	pBlackboard->ChangeData("Steering", steering);
+	//pBlackboard->ChangeData("Target", m_Target);
 }
 
 //Called only once
@@ -155,7 +168,7 @@ SteeringPlugin_Output SurvivalAgentPlugin::UpdateSteering(float dt)
 	auto steering = SteeringPlugin_Output();
 
 	//Use the Interface (IAssignmentInterface) to 'interface' with the AI_Framework
-	UpdateBlackboard();
+	UpdateBlackboard(steering);
 
 
 	/*//Use the navmesh to calculate the next navmesh point
@@ -254,6 +267,11 @@ SteeringPlugin_Output SurvivalAgentPlugin::UpdateSteering(float dt)
 	m_DestroyItemsInFOV = false;*/
 
 	m_BehaviourTree->Update();
+
+	m_BehaviourTree->GetBlackboard()->GetData("Steering", steering);
+
+	steering.AngularVelocity = m_AngSpeed;
+	steering.AutoOrient = false;
 
 	return steering;
 }

@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "BehaviourTree.h"
+#include "SurvivalAgentPlugin.h"
 
 using namespace BT;
 
@@ -17,7 +18,7 @@ Composite::~Composite()
 }
 
 //SELECTOR
-BehaviourState Selector::Execute(Blackboard* blackboardPtr)
+State Selector::Execute(Blackboard* blackboardPtr)
 {
 	// Loop over all children in m_ChildBehaviours
 	for (IBehaviour* pBeh : m_ChildBehaviours)
@@ -27,14 +28,14 @@ BehaviourState Selector::Execute(Blackboard* blackboardPtr)
 
 		//Check the currentstate and apply the selector Logic:
 		//if a child returns Success:
-		if (m_CurrentState == BehaviourState::Success)
+		if (m_CurrentState == State::Success)
 		{
 			//stop looping over all children and return Success
 			return m_CurrentState;
 		}
 
 		//if a child returns Running:
-		if (m_CurrentState == BehaviourState::Running)
+		if (m_CurrentState == State::Running)
 		{
 			//Running: stop looping and return Running
 			return m_CurrentState;
@@ -43,11 +44,11 @@ BehaviourState Selector::Execute(Blackboard* blackboardPtr)
 	}
 
 	//All children failed
-	m_CurrentState = BehaviourState::Failure;
+	m_CurrentState = State::Failure;
 	return m_CurrentState;
 }
 //SEQUENCE
-BehaviourState Sequence::Execute(Blackboard* blackboardPtr)
+State Sequence::Execute(Blackboard* blackboardPtr)
 {
 	//Loop over all children in m_ChildBehaviours
 	for (IBehaviour* pBeh : m_ChildBehaviours)
@@ -57,14 +58,14 @@ BehaviourState Sequence::Execute(Blackboard* blackboardPtr)
 
 		//Check the currentstate and apply the sequence Logic:
 		//if a child returns Failed:
-		if (m_CurrentState == BehaviourState::Failure)
+		if (m_CurrentState == State::Failure)
 		{
 			//stop looping over all children and return Failed
 			return m_CurrentState;
 		}
 
 		//if a child returns Running:
-		if (m_CurrentState == BehaviourState::Running)
+		if (m_CurrentState == State::Running)
 		{
 			//Running: stop looping and return Running
 			return m_CurrentState;
@@ -75,56 +76,56 @@ BehaviourState Sequence::Execute(Blackboard* blackboardPtr)
 	}
 
 	//All children succeeded 
-	m_CurrentState = BehaviourState::Success;
+	m_CurrentState = State::Success;
 	return m_CurrentState;
 }
 
-BehaviourState PartialSequence::Execute(Blackboard* blackboardPtr)
+State PartialSequence::Execute(Blackboard* blackboardPtr)
 {
 	while (m_CurrentBehaviourIndex < m_ChildBehaviours.size())
 	{
 		m_CurrentState = m_ChildBehaviours[m_CurrentBehaviourIndex]->Execute(blackboardPtr);
 		switch (m_CurrentState)
 		{
-		case BehaviourState::Failure:
+		case State::Failure:
 			m_CurrentBehaviourIndex = 0;
 			return m_CurrentState;
-		case BehaviourState::Success:
+		case State::Success:
 			++m_CurrentBehaviourIndex;
-			m_CurrentState = BehaviourState::Running;
+			m_CurrentState = State::Running;
 			return m_CurrentState;
-		case BehaviourState::Running:
+		case State::Running:
 			return m_CurrentState;
 		}
 	}
 
 	m_CurrentBehaviourIndex = 0;
-	m_CurrentState = BehaviourState::Success;
+	m_CurrentState = State::Success;
 	return m_CurrentState;
 }
 #pragma endregion
 
 
-BehaviourState Conditional::Execute(Blackboard* blackboardPtr)
+State Conditional::Execute(Blackboard* blackboardPtr)
 {
 	if (m_ConditionalPtr == nullptr)
-		return BehaviourState::Failure;
+		return State::Failure;
 
 	if (m_ConditionalPtr(blackboardPtr))
 	{
-		m_CurrentState = BehaviourState::Success;
+		m_CurrentState = State::Success;
 	}
 	else
 	{
-		m_CurrentState = BehaviourState::Failure;
+		m_CurrentState = State::Failure;
 	}
 	return m_CurrentState;
 }
 
-BehaviourState Action::Execute(Blackboard* blackboardPtr)
+State Action::Execute(Blackboard* blackboardPtr)
 {
 	if (m_ActionPtr == nullptr)
-		return BehaviourState::Failure;
+		return State::Failure;
 
 	m_CurrentState = m_ActionPtr(blackboardPtr);
 	return m_CurrentState;
@@ -133,14 +134,14 @@ BehaviourState Action::Execute(Blackboard* blackboardPtr)
 BehaviourTree::~BehaviourTree()
 {
 	SAFE_DELETE(m_RootBehaviourPtr)
-		SAFE_DELETE(m_BlackboardPtr) //Takes ownership of passed blackboard!
+	SAFE_DELETE(m_BlackboardPtr) //Takes ownership of passed blackboard!
 }
 
 void BehaviourTree::Update()
 {
 	if (m_RootBehaviourPtr == nullptr)
 	{
-		m_CurrentState = BehaviourState::Failure;
+		m_CurrentState = State::Failure;
 		return;
 	}
 
