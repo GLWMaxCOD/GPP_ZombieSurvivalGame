@@ -43,7 +43,7 @@ private:
 	UINT m_InventorySlot = 0;
 
 	Blackboard* CreateBlackboard() const;
-	void UpdateBlackboard(const SteeringPlugin_Output& steering) const;
+	void UpdateBlackboard(const SteeringPlugin_Output& steering);
 	BT::BehaviourTree* m_BehaviourTree;
 	Brain* m_pBrain;
 };

@@ -186,6 +186,7 @@
     <ClInclude Include="BehaviourTree.h" />
     <ClInclude Include="BlackBoard.h" />
     <ClInclude Include="Brain.h" />
+    <ClInclude Include="Branches.h" />
     <ClInclude Include="SurvivalAgentPlugin.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="vld.h" />
@@ -195,6 +196,7 @@
     <ClCompile Include="Behaviour.cpp" />
     <ClCompile Include="BehaviourTree.cpp" />
     <ClCompile Include="Brain.cpp" />
+    <ClCompile Include="Branches.cpp" />
     <ClCompile Include="SurvivalAgentPlugin.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>

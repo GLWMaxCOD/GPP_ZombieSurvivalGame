@@ -4,43 +4,17 @@
 #include <IExamInterface.h>
 #include "Brain.h"
 
+static int randNumRange(int minRange, int maxRange)
+{
+	std::random_device rd;
+	std::mt19937 seed(rd());
+	std::uniform_int_distribution<> range(minRange, maxRange);
+
+	return range(seed);
+}
+
 namespace BT_Actions
 {
-	BT::State SetTimer(Blackboard* pBlackboard, const std::string& timerName)
-	{
-		pBlackboard->ChangeData(timerName + "Timer", std::chrono::steady_clock::now());
-		pBlackboard->ChangeData(timerName + "TimerLock", false);
-
-		return BT::State::Success;
-	}
-
-	BT::State LockTimer(Blackboard* pBlackboard, const std::string& timerName)
-	{
-		pBlackboard->ChangeData(timerName + "TimerLock", true);
-
-		return BT::State::Success;
-	}
-
-	BT::State FindHouse(Blackboard* pBlackboard, float radius)
-	{
-		IExamInterface* interfacePtr{};
-		pBlackboard->GetData("Interface", interfacePtr);
-
-		std::random_device rd;
-		std::mt19937 seed(rd());
-		std::uniform_int_distribution<> range(-radius, radius);
-
-		const Elite::Vector2 randomLocation(range(seed), range(seed));
-		const Elite::Vector2 target = interfacePtr->NavMesh_GetClosestPathPoint(randomLocation);
-
-		if (randomLocation != target)
-		{
-			pBlackboard->ChangeData("Target", randomLocation);
-			return BT::State::Success;
-		}
-		return BT::State::Running;
-	}
-
 	BT::State GoToDestination(Blackboard* pBlackboard)
 	{
 		IExamInterface* pInterface{};
@@ -61,7 +35,7 @@ namespace BT_Actions
 		steering.LinearVelocity.Normalize();
 		steering.LinearVelocity *= agentInfo.MaxLinearSpeed;
 
-		if (Distance(nextTargetPos, agentInfo.Position) < 2.f)
+		if (Distance(target, agentInfo.Position) < 2.f)
 		{
 			steering.LinearVelocity = Elite::ZeroVector2;
 
@@ -75,26 +49,121 @@ namespace BT_Actions
 		return BT::State::Running;
 	}
 
-	BT::State GetHouseAsTarget(Blackboard* pBlackboard)
+	BT::State EnableSpin(Blackboard* pBlackboard)
+	{
+		pBlackboard->ChangeData("Spin", true);
+
+		return BT::State::Success;
+	}
+
+	BT::State DisableSpin(Blackboard* pBlackboard)
+	{
+		pBlackboard->ChangeData("Spin", false);
+
+		return BT::State::Success;
+	}
+
+	BT::State SetItemAsTarget(Blackboard* pBlackboard)
+	{
+		IExamInterface* pInterface{};
+		pBlackboard->GetData("Interface", pInterface);
+
+		if (pInterface->GetItemsInFOV().capacity() == 0)
+		{
+			return BT::State::Failure;
+		}
+
+		ItemInfo targetItem{};
+		float closestItem{ FLT_MAX };
+
+		for (const auto item : pInterface->GetItemsInFOV())
+		{
+			const float itemDistance{ pInterface->Agent_GetInfo().Position.DistanceSquared(item.Location) };
+
+			if (closestItem < itemDistance)
+				continue;
+
+			closestItem = itemDistance;
+			targetItem = item;
+		}
+
+		pBlackboard->ChangeData("TargetItem", targetItem);
+		pBlackboard->ChangeData("Target", targetItem.Location);
+
+		return BT::State::Success;
+	}
+
+	BT::State DestroyItemOnFloor(Blackboard* pBlackboard)
+	{
+		IExamInterface* pInterface{};
+		ItemInfo targetItem{};
+
+		pBlackboard->GetData("Interface", pInterface);
+		pBlackboard->GetData("TargetItem", targetItem);
+
+		pInterface->DestroyItem(targetItem);
+
+		return BT::State::Success;
+	}
+
+	BT::State PickUpItem(Blackboard* pBlackboard)
+	{
+		IExamInterface* pInterface{};
+		Brain* pBrain{};
+		ItemInfo targetItem{};
+		int freeSlot{};
+
+		pBlackboard->GetData("Interface", pInterface);
+		pBlackboard->GetData("Brain", pBrain);
+		pBlackboard->GetData("TargetItem", targetItem);
+		pBlackboard->GetData("NextFreeSlot", freeSlot);
+
+		pInterface->GrabItem(targetItem);
+		pInterface->Inventory_AddItem(freeSlot, targetItem);
+
+		pBlackboard->ChangeData("NextFreeSlot", pBrain->AddItemToMemory(targetItem));
+
+		return BT::State::Success;
+	}
+
+	BT::State TryFindHouse(Blackboard* pBlackboard, int searchRadius)
+	{
+		IExamInterface* pInterface{};
+
+		pBlackboard->GetData("Interface", pInterface);
+
+		const Elite::Vector2 randomLocation(randNumRange(-searchRadius, searchRadius),
+			randNumRange(-searchRadius, searchRadius));
+
+		const Elite::Vector2 target = pInterface->NavMesh_GetClosestPathPoint(randomLocation);
+
+		if (randomLocation != target)
+		{
+			pBlackboard->ChangeData("Target", randomLocation);
+
+			return BT::State::Success;
+		}
+
+		return BT::State::Running;
+	}
+
+	BT::State GetHouseAsTarget(Blackboard* pBlackboard, float maxTravelDistance)
 	{
 		Brain* pBrain{};
 		IExamInterface* pInterface{};
-		float maxTravelDistance{};
 
 		pBlackboard->GetData("Brain", pBrain);
 		pBlackboard->GetData("Interface", pInterface);
-		pBlackboard->GetData("MaxTravelDistance", maxTravelDistance);
 
-		const HouseInfo targetHouse{ pBrain->CheckHouseTarget(pInterface->Agent_GetInfo().Position, maxTravelDistance) };
+		const HouseInfo targetHouse{ pBrain->CheckHouseValidTarget(pInterface->Agent_GetInfo().Position, maxTravelDistance) };
 
 		if (targetHouse.Size.x <= 0)
 		{
 			return BT::State::Failure;
 		}
 
-		pBlackboard->ChangeData("Target", targetHouse.Center);
+		pBlackboard->ChangeData("TargetHouse", targetHouse);
 
-		std::cout << targetHouse.Center << std::endl;
 		return BT::State::Success;
 	}
 
@@ -106,7 +175,7 @@ namespace BT_Actions
 		pBlackboard->GetData("Brain", pBrain);
 		pBlackboard->GetData("Interface", pInterface);
 
-		if (pBrain->CheckHouses(pInterface->GetHousesInFOV()))
+		if (pBrain->CheckHousesForMemory(pInterface->GetHousesInFOV()))
 		{
 			return BT::State::Success;
 		}
@@ -114,10 +183,74 @@ namespace BT_Actions
 		return BT::State::Failure;
 	}
 
+	BT::State SetExpireDate(Blackboard* pBlackboard)
+	{
+		Brain* pBrain{};
+		HouseInfo targetHouse{};
+
+		pBlackboard->GetData("Brain", pBrain);
+		pBlackboard->GetData("TargetHouse", targetHouse);
+
+		pBrain->SetTargetHouseExpireDate(targetHouse);
+
+		return BT::State::Success;
+	}
+
+	BT::State GetOutsideTarget(Blackboard* pBlackboard, int offset)
+	{
+		HouseInfo targetHouse{};
+		pBlackboard->GetData("TargetHouse", targetHouse);
+
+		const Elite::Vector2 houseSize{ targetHouse.Size };
+
+		const Elite::Vector2 targetLocation(randNumRange(int(houseSize.x), int(houseSize.x + offset)),
+			randNumRange(int(houseSize.y), int(houseSize.y + offset)));
+
+		pBlackboard->ChangeData("Target", targetLocation);
+
+		return BT::State::Success;
+	}
 }
 
 namespace BT_Conditions
 {
+	bool SeeItem(Blackboard* pBlackboard)
+	{
+		IExamInterface* pInterface{};
+		pBlackboard->GetData("Interface", pInterface);
+
+		return pInterface->GetItemsInFOV().capacity() > 0;
+	}
+
+	bool IsTypeOfItem(Blackboard* pBlackboard, eItemType typoToCheck)
+	{
+		ItemInfo targetItem{};
+		pBlackboard->GetData("TargetItem", targetItem);
+
+		return targetItem.Type == typoToCheck;
+	}
+
+	bool InvIsFull(Blackboard* pBlackboard)
+	{
+		Brain* pBrain{};
+		pBlackboard->GetData("Brain", pBrain);
+
+		return pBrain->IsInvFull();
+	}
+
+	bool InvIsNotFull(Blackboard* pBlackboard)
+	{
+		return !InvIsFull(pBlackboard);
+	}
+
+	bool InsideHouse(Blackboard* pBlackboard)
+	{
+		IExamInterface* pInterface{};
+		pBlackboard->GetData("Interface", pInterface);
+
+		return pInterface->Agent_GetInfo().IsInHouse;
+	}
+
 	bool SeeHouse(Blackboard* pBlackboard)
 	{
 		IExamInterface* pInterface{};
@@ -126,33 +259,19 @@ namespace BT_Conditions
 		return pInterface->GetHousesInFOV().capacity() > 0;
 	}
 
-	bool TimerReached(Blackboard* pBlackboard, const std::string& timerName)
-	{
-		bool lock{};
-		pBlackboard->GetData(timerName + "TimerLock", lock);
-
-		if (lock)
-			return false;
-
-		std::chrono::steady_clock::time_point timer{};
-		float maxTime{};
-
-		pBlackboard->GetData(timerName + "Timer", timer);
-		pBlackboard->GetData("max" + timerName + "Timer", maxTime);
-
-		const std::chrono::steady_clock::time_point currentTime{ std::chrono::steady_clock::now() };
-		const std::chrono::duration<float> elapsedSec{ currentTime - timer };
-
-		const bool result = elapsedSec.count() > maxTime;
-		std::cout << result << std::endl;
-		return result;
-	}
-
 	bool NewHouse(Blackboard* pBlackboard)
 	{
 		Brain* pBrain{};
 		pBlackboard->GetData("Brain", pBrain);
 
 		return pBrain->NewHouseToExplore();
+	}
+
+	bool ReExploreHouse(Blackboard* pBlackboard)
+	{
+		Brain* pBrain{};
+		pBlackboard->GetData("Brain", pBrain);
+
+		return pBrain->HouseToReExplore();
 	}
 }

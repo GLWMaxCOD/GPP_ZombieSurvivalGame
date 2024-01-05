@@ -6,6 +6,7 @@
     <ClCompile Include="BehaviourTree.cpp" />
     <ClCompile Include="Brain.cpp" />
     <ClCompile Include="Behaviour.cpp" />
+    <ClCompile Include="Branches.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SurvivalAgentPlugin.h" />
@@ -16,5 +17,6 @@
     <ClInclude Include="vld.h" />
     <ClInclude Include="vld_def.h" />
     <ClInclude Include="Behaviour.h" />
+    <ClInclude Include="Branches.h" />
   </ItemGroup>
 </Project>

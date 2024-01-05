@@ -1,14 +1,10 @@
 #include "stdafx.h"
 #include "SurvivalAgentPlugin.h"
+#include "BehaviourTree.h"
 #include "IExamInterface.h"
 #include "BlackBoard.h"
-#include "BehaviourTree.h"
-#include "Behaviour.h" 
 #include "Brain.h"
-
-#undef NDEBUG
-#include <cassert>
-#define assertm(exp, msg) assert((msg, exp))
+#include "Branches.h"
 
 SurvivalAgentPlugin::~SurvivalAgentPlugin()
 {
@@ -35,42 +31,11 @@ void SurvivalAgentPlugin::Initialize(IBaseInterface* pInterface, PluginInfo& inf
 
 	m_pBrain = new Brain();
 
-	constexpr float closeRadius{ 50.f };
-	const float farRadius{ m_pInterface->World_GetInfo().Dimensions.x };
-
-	const std::string searchTimer{ "Search" };
-
-	Blackboard* blackboardPtr{ CreateBlackboard() };
-	m_BehaviourTree = new BT::BehaviourTree(blackboardPtr, 
+	Blackboard* pBlackboard{ CreateBlackboard() };
+	m_BehaviourTree = new BT::BehaviourTree(pBlackboard, 
 		new BT::Selector({
-			// houses
-			new BT::Selector({
-				new BT::Selector({
-					new BT::PartialSequence({
-						new BT::Conditional(BT_Conditions::NewHouse),
-						new BT::Action(BT_Actions::GetHouseAsTarget),
-						new BT::Action(BT_Actions::GoToDestination)
-					})
-				}),
-				new BT::Sequence({
-					new BT::Conditional(BT_Conditions::SeeHouse),
-					new BT::Action(BT_Actions::CheckHouses)
-				}),
-				new BT::Selector({
-					new BT::PartialSequence({
-						new BT::Conditional(std::bind(BT_Conditions::TimerReached, std::placeholders::_1, searchTimer)),
-						new BT::Action(std::bind(BT_Actions::LockTimer, std::placeholders::_1, searchTimer)),
-						new BT::Action(std::bind(BT_Actions::FindHouse, std::placeholders::_1, farRadius)),
-						new BT::Action(BT_Actions::GoToDestination)
-					}),
-					new BT::PartialSequence({
-						new BT::Action(std::bind(BT_Actions::SetTimer, std::placeholders::_1, searchTimer)),
-						new BT::Action(std::bind(BT_Actions::FindHouse, std::placeholders::_1, closeRadius)),
-						new BT::Action(std::bind(BT_Actions::LockTimer, std::placeholders::_1, searchTimer)),
-						new BT::Action(BT_Actions::GoToDestination)
-					})
-				})
-			})
+			Branch::ItemHandling(),
+			Branch::HouseHandling()
 		}));
 }
 
@@ -82,22 +47,24 @@ Blackboard* SurvivalAgentPlugin::CreateBlackboard() const
 	pBlackboard->AddData("Interface", m_pInterface);
 	pBlackboard->AddData("Steering", SteeringPlugin_Output{});
 	pBlackboard->AddData("Target", m_Target);
+	pBlackboard->AddData("Spin", false);
 
-	pBlackboard->AddData("SearchTimerLock", true);
-	pBlackboard->AddData("SearchTimer", std::chrono::steady_clock::time_point{});
-	pBlackboard->AddData("MaxSearchTime", 5.f);
-	pBlackboard->AddData("MaxTravelDistance", 100.f);
+	pBlackboard->AddData("TargetItem", ItemInfo{});
+	pBlackboard->AddData("NextFreeSlot", 0);
+
+	pBlackboard->AddData("Search radius", 200);
+	pBlackboard->AddData("TargetHouse", HouseInfo{});
+	pBlackboard->AddData("MaxTravelDistance", 200.f);
 
 	return pBlackboard;
 }
 
-void SurvivalAgentPlugin::UpdateBlackboard(const SteeringPlugin_Output& steering) const
+void SurvivalAgentPlugin::UpdateBlackboard(const SteeringPlugin_Output& steering)
 {
 	Blackboard* pBlackboard{ m_BehaviourTree->GetBlackboard() };
 
-	//pBlackboard->ChangeData("Player position", m_pInterface->Agent_GetInfo().Position);
 	pBlackboard->ChangeData("Steering", steering);
-	//pBlackboard->ChangeData("Target", m_Target);
+	pBlackboard->GetData("Target", m_Target);
 }
 
 //Called only once
@@ -124,9 +91,9 @@ void SurvivalAgentPlugin::InitGameDebugParams(GameDebugParams& params)
 	params.AutoGrabClosestItem = true; //A call to Item_Grab(...) returns the closest item that can be grabbed. (EntityInfo argument is ignored)
 	params.StartingDifficultyStage = 1;
 	params.InfiniteStamina = false;
-	params.SpawnDebugPistol = true;
-	params.SpawnDebugShotgun = true;
-	params.SpawnPurgeZonesOnMiddleClick = true;
+	params.SpawnDebugPistol = false;
+	params.SpawnDebugShotgun = false;
+	params.SpawnPurgeZonesOnMiddleClick = false;
 	params.PrintDebugMessages = true;
 	params.ShowDebugItemNames = true;
 	params.Seed = static_cast<int>(time(nullptr)); //-1 = don't set seed. Any other number = fixed seed //TIP: use Seed = int(time(nullptr)) for pure randomness
@@ -199,117 +166,151 @@ void SurvivalAgentPlugin::Update_Debug(float dt)
 	}
 }
 
-//This function calculates the new SteeringOutput, called once per frame
 SteeringPlugin_Output SurvivalAgentPlugin::UpdateSteering(float dt)
 {
 	auto steering = SteeringPlugin_Output();
+	bool spin{};
 
-	//Use the Interface (IAssignmentInterface) to 'interface' with the AI_Framework
-	auto agentInfo = m_pInterface->Agent_GetInfo();
+	UpdateBlackboard(steering);
 
-	//Use the navmesh to calculate the next navmesh point
-	//auto nextTargetPos = m_pInterface->NavMesh_GetClosestPathPoint(checkpointLocation);
+	m_BehaviourTree->Update();
 
-	//OR, Use the mouse target
-	auto nextTargetPos = m_pInterface->NavMesh_GetClosestPathPoint(m_Target);
+	m_BehaviourTree->GetBlackboard()->GetData("Steering", steering);
+	m_BehaviourTree->GetBlackboard()->GetData("Spin", spin);
 
-	//FOV USAGE DEMO
-	//===============
-
-	//FOV stats = CHEAP! info about the FOV
-	FOVStats stats = m_pInterface->FOV_GetStats();
-
-	//FOV data (snapshot of the FOV of the current frame) = EXPENSIVE! returns a new vector for every call
-	auto vHousesInFOV = m_pInterface->GetHousesInFOV();
-	auto vEnemiesInFOV = m_pInterface->GetEnemiesInFOV();
-	auto vItemsInFOV = m_pInterface->GetItemsInFOV();
-	auto vPurgezonesInFOV = m_pInterface->GetPurgeZonesInFOV();
-
-	//for (auto& zoneInfo : vPurgezonesInFOV)
-	//{
-	//	std::cout << "Purge Zone in FOV:" << zoneInfo.Center.x << ", "<< zoneInfo.Center.y << "---Radius: "<< zoneInfo.Radius << std::endl;
-	//}
-
-	//for (auto& enemyInfo : vEnemiesInFOV)
-	//{
-	//	std::cout << "Enemy in FOV:" << enemyInfo.Location.x << ", " << enemyInfo.Location.y << "---Health: " << enemyInfo.Health << std::endl;
-	//}
-
-	//for (auto& item : vItemsInFOV)
-	//{
-	//	std::cout << "Item in FOV:" << item.Location.x << ", " << item.Location.y << "---Value: " << item.Value << std::endl;	
-	//}
-
-	//INVENTORY USAGE DEMO
-	//********************
+	if (spin)
+	{
+		steering.AutoOrient = false;
+		steering.AngularVelocity = 3.14f;
+	}
 
 	if (m_GrabItem)
 	{
 		ItemInfo item;
-		//Item_Grab > When DebugParams.AutoGrabClosestItem is TRUE, the Item_Grab function returns the closest item in range
-		//Keep in mind that DebugParams are only used for debugging purposes, by default this flag is FALSE
-		//Otherwise, use GetEntitiesInFOV() to retrieve a vector of all entities in the FOV (EntityInfo)
-		//Item_Grab gives you the ItemInfo back, based on the passed EntityHash (retrieved by GetEntitiesInFOV)
-		if (m_pInterface->GrabNearestItem(item))
+
+		m_BehaviourTree->GetBlackboard()->GetData("TargetItem", item);
+
+		if (m_pInterface->GrabItem(item))
 		{
-			//Once grabbed, you can add it to a specific inventory slot
-			//Slot must be empty
 			m_pInterface->Inventory_AddItem(m_InventorySlot, item);
 		}
 	}
 
-	if (m_UseItem)
-	{
-		//Use an item (make sure there is an item at the given inventory slot)
-		m_pInterface->Inventory_UseItem(m_InventorySlot);
-	}
-
-	if (m_RemoveItem)
-	{
-		//Remove an item from a inventory slot
-		m_pInterface->Inventory_RemoveItem(m_InventorySlot);
-	}
-
-	if (m_DestroyItemsInFOV)
-	{
-		for (auto& item : vItemsInFOV)
-		{
-			m_pInterface->DestroyItem(item);
-		}
-	}
-
-	//Simple Seek Behaviour (towards Target)
-	steering.LinearVelocity = nextTargetPos - agentInfo.Position; //Desired Velocity
-	steering.LinearVelocity.Normalize(); //Normalize Desired Velocity
-	steering.LinearVelocity *= agentInfo.MaxLinearSpeed; //Rescale to Max Speed
-
-	if (Distance(nextTargetPos, agentInfo.Position) < 2.f)
-	{
-		steering.LinearVelocity = Elite::ZeroVector2;
-	}
-
-	steering.AngularVelocity = m_AngSpeed; //Rotate your character to inspect the world while walking
-
-	//steering.AutoOrient = false; //Setting AutoOrient to true overrides the AngularVelocity
-	steering.RunMode = m_CanRun; //If RunMode is True > MaxLinearSpeed is increased for a limited time (until your stamina runs out)
-
-	//SteeringPlugin_Output is works the exact same way a SteeringBehaviour output
-
-	//@End (Demo Purposes)
-
-	m_GrabItem = false; //Reset State
-	m_UseItem = false;
-	m_RemoveItem = false;
-	m_DestroyItemsInFOV = false;
-
 	return steering;
 }
+
+////This function calculates the new SteeringOutput, called once per frame
+//SteeringPlugin_Output SurvivalAgentPlugin::UpdateSteering(float dt)
+//{
+//	auto steering = SteeringPlugin_Output();
+//
+//	//Use the Interface (IAssignmentInterface) to 'interface' with the AI_Framework
+//	auto agentInfo = m_pInterface->Agent_GetInfo();
+//
+//	//Use the navmesh to calculate the next navmesh point
+//	//auto nextTargetPos = m_pInterface->NavMesh_GetClosestPathPoint(checkpointLocation);
+//
+//	//OR, Use the mouse target
+//	auto nextTargetPos = m_pInterface->NavMesh_GetClosestPathPoint(m_Target);
+//
+//	//FOV USAGE DEMO
+//	//===============
+//
+//	//FOV stats = CHEAP! info about the FOV
+//	FOVStats stats = m_pInterface->FOV_GetStats();
+//
+//	//FOV data (snapshot of the FOV of the current frame) = EXPENSIVE! returns a new vector for every call
+//	auto vHousesInFOV = m_pInterface->GetHousesInFOV();
+//	auto vEnemiesInFOV = m_pInterface->GetEnemiesInFOV();
+//	auto vItemsInFOV = m_pInterface->GetItemsInFOV();
+//	auto vPurgezonesInFOV = m_pInterface->GetPurgeZonesInFOV();
+//
+//	//for (auto& zoneInfo : vPurgezonesInFOV)
+//	//{
+//	//	std::cout << "Purge Zone in FOV:" << zoneInfo.Center.x << ", "<< zoneInfo.Center.y << "---Radius: "<< zoneInfo.Radius << std::endl;
+//	//}
+//
+//	//for (auto& enemyInfo : vEnemiesInFOV)
+//	//{
+//	//	std::cout << "Enemy in FOV:" << enemyInfo.Location.x << ", " << enemyInfo.Location.y << "---Health: " << enemyInfo.Health << std::endl;
+//	//}
+//
+//	//for (auto& item : vItemsInFOV)
+//	//{
+//	//	std::cout << "Item in FOV:" << item.Location.x << ", " << item.Location.y << "---Value: " << item.Value << std::endl;	
+//	//}
+//
+//	//INVENTORY USAGE DEMO
+//	//********************
+//
+//	if (m_GrabItem)
+//	{
+//		ItemInfo item;
+//		//Item_Grab > When DebugParams.AutoGrabClosestItem is TRUE, the Item_Grab function returns the closest item in range
+//		//Keep in mind that DebugParams are only used for debugging purposes, by default this flag is FALSE
+//		//Otherwise, use GetEntitiesInFOV() to retrieve a vector of all entities in the FOV (EntityInfo)
+//		//Item_Grab gives you the ItemInfo back, based on the passed EntityHash (retrieved by GetEntitiesInFOV)
+//		if (m_pInterface->GrabNearestItem(item))
+//		{
+//			//Once grabbed, you can add it to a specific inventory slot
+//			//Slot must be empty
+//			m_pInterface->Inventory_AddItem(m_InventorySlot, item);
+//		}
+//	}
+//
+//	if (m_UseItem)
+//	{
+//		//Use an item (make sure there is an item at the given inventory slot)
+//		m_pInterface->Inventory_UseItem(m_InventorySlot);
+//	}
+//
+//	if (m_RemoveItem)
+//	{
+//		//Remove an item from a inventory slot
+//		m_pInterface->Inventory_RemoveItem(m_InventorySlot);
+//	}
+//
+//	if (m_DestroyItemsInFOV)
+//	{
+//		for (auto& item : vItemsInFOV)
+//		{
+//			m_pInterface->DestroyItem(item);
+//		}
+//	}
+//
+//	//Simple Seek Behaviour (towards Target)
+//	steering.LinearVelocity = nextTargetPos - agentInfo.Position; //Desired Velocity
+//	steering.LinearVelocity.Normalize(); //Normalize Desired Velocity
+//	steering.LinearVelocity *= agentInfo.MaxLinearSpeed; //Rescale to Max Speed
+//
+//	if (Distance(nextTargetPos, agentInfo.Position) < 2.f)
+//	{
+//		steering.LinearVelocity = Elite::ZeroVector2;
+//	}
+//
+//	steering.AngularVelocity = m_AngSpeed; //Rotate your character to inspect the world while walking
+//
+//	//steering.AutoOrient = false; //Setting AutoOrient to true overrides the AngularVelocity
+//	steering.RunMode = m_CanRun; //If RunMode is True > MaxLinearSpeed is increased for a limited time (until your stamina runs out)
+//
+//	//SteeringPlugin_Output is works the exact same way a SteeringBehaviour output
+//
+//	//@End (Demo Purposes)
+//
+//	m_GrabItem = false; //Reset State
+//	m_UseItem = false;
+//	m_RemoveItem = false;
+//	m_DestroyItemsInFOV = false;
+//
+//	return steering;
+//}
 
 //This function should only be used for rendering debug elements
 void SurvivalAgentPlugin::Render(float dt) const
 {
 	//This Render function should only contain calls to Interface->Draw_... functions
-	m_pInterface->Draw_Circle(m_pInterface->Agent_GetInfo().Position, 50.f, { 1.f, 0.f, 0 });
+	m_pInterface->Draw_SolidCircle(m_Target, .7f, { 0,0 }, { 1, 0, 0 });
+	m_pInterface->Draw_Circle(m_pInterface->Agent_GetInfo().Position, 200.f, { 1.f, 0.f, 0 });
 }
 
 

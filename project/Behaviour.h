@@ -1,5 +1,5 @@
 #pragma once
-#include <chrono>
+#include <Exam_HelperStructs.h>
 
 #include "Blackboard.h"
 
@@ -12,20 +12,30 @@ class Blackboard;
 
 namespace BT_Actions
 {
-	BT::State SetTimer(Blackboard* pBlackboard, const std::string& timerName);
-	BT::State LockTimer(Blackboard* pBlackboard, const std::string& timerName);
-
 	BT::State GoToDestination(Blackboard* pBlackboard);
+	BT::State SetExpireDate(Blackboard* pBlackboard);
+	BT::State EnableSpin(Blackboard* pBlackboard);
+	BT::State DisableSpin(Blackboard* pBlackboard);
 
-	BT::State GetHouseAsTarget(Blackboard* pBlackboard);
-	BT::State FindHouse(Blackboard* pBlackboard, float radius);
+	BT::State SetItemAsTarget(Blackboard* pBlackboard);
+	BT::State DestroyItemOnFloor(Blackboard* pBlackboard);
+	BT::State PickUpItem(Blackboard* pBlackboard);
+
+	BT::State TryFindHouse(Blackboard* pBlackboard, int searchRadius);
+	BT::State GetHouseAsTarget(Blackboard* pBlackboard, float maxTravelDistance);
 	BT::State CheckHouses(Blackboard* pBlackboard);
+	BT::State GetOutsideTarget(Blackboard* pBlackboard, int offset);
 }
 
 namespace BT_Conditions
 {
-	bool TimerReached(Blackboard* pBlackboard, const std::string& timerName);
+	bool SeeItem(Blackboard* pBlackboard);
+	bool IsTypeOfItem(Blackboard* pBlackboard, eItemType typoToCheck);
+	bool InvIsFull(Blackboard* pBlackboard);
+	bool InvIsNotFull(Blackboard* pBlackboard);
 
+	bool InsideHouse(Blackboard* pBlackboard);
 	bool NewHouse(Blackboard* pBlackboard);
 	bool SeeHouse(Blackboard* pBlackboard);
+	bool ReExploreHouse(Blackboard* pBlackboard);
 }

@@ -45,7 +45,7 @@ protected:
 class Selector final : public Composite
 {
 public:
-	explicit Selector(std::vector<IBehaviour*> childBehaviours) :
+	inline explicit Selector(const std::vector<IBehaviour*>& childBehaviours) :
 		Composite(std::move(childBehaviours)) {}
 	~Selector() override = default;
 
@@ -55,7 +55,7 @@ public:
 class Sequence : public Composite
 {
 public:
-	inline explicit Sequence(std::vector<IBehaviour*> childBehaviours) :
+	inline explicit Sequence(const std::vector<IBehaviour*>& childBehaviours) :
 		Composite(std::move(childBehaviours)) {}
 	~Sequence() override = default;
 
@@ -65,7 +65,7 @@ public:
 class PartialSequence final : public Sequence
 {
 public:
-	inline explicit PartialSequence(std::vector<IBehaviour*> childBehaviours)
+	inline explicit PartialSequence(const std::vector<IBehaviour*>& childBehaviours)
 		: Sequence(std::move(childBehaviours)) {}
 	~PartialSequence() override = default;
 
