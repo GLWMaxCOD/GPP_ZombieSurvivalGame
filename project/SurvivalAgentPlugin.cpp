@@ -4,6 +4,7 @@
 #include "BlackBoard.h"
 #include "BehaviourTree.h"
 #include "Behaviour.h" 
+#include "Brain.h"
 
 #undef NDEBUG
 #include <cassert>
@@ -12,6 +13,7 @@
 SurvivalAgentPlugin::~SurvivalAgentPlugin()
 {
 	SAFE_DELETE(m_BehaviourTree)
+	SAFE_DELETE(m_pBrain)
 }
 
 //Called only once, during initialization
@@ -22,7 +24,7 @@ void SurvivalAgentPlugin::Initialize(IBaseInterface* pInterface, PluginInfo& inf
 	m_pInterface = static_cast<IExamInterface*>(pInterface);
 
 	//Information for the leaderboards!
-	info.BotName = "Barnabas";
+	info.BotName = "Ren Yamashiro";
 	info.Student_Name = "Tibo Van Hoorebeke"; //No special characters allowed. Highscores won't work with special characters.
 	info.Student_Class = "2DAE10";
 	info.LB_Password = "I_Believe_In_Acheron";//Don't use a real password! This is only to prevent other students from overwriting your highscore!
@@ -31,13 +33,43 @@ void SurvivalAgentPlugin::Initialize(IBaseInterface* pInterface, PluginInfo& inf
 	// Setting up the AI
 	//---------------------------------------
 
-	Blackboard* pBlackboard{ CreateBlackboard() };
+	m_pBrain = new Brain();
 
-	m_BehaviourTree = new BT::BehaviourTree(pBlackboard, 
+	constexpr float closeRadius{ 50.f };
+	const float farRadius{ m_pInterface->World_GetInfo().Dimensions.x };
+
+	const std::string searchTimer{ "Search" };
+
+	Blackboard* blackboardPtr{ CreateBlackboard() };
+	m_BehaviourTree = new BT::BehaviourTree(blackboardPtr, 
 		new BT::Selector({
-			new BT::PartialSequence({
-				new BT::Action(BT_Actions::FindAHouse), 
-				new BT::Action(BT_Actions::GoToDestination)
+			// houses
+			new BT::Selector({
+				new BT::Selector({
+					new BT::PartialSequence({
+						new BT::Conditional(BT_Conditions::NewHouse),
+						new BT::Action(BT_Actions::GetHouseAsTarget),
+						new BT::Action(BT_Actions::GoToDestination)
+					})
+				}),
+				new BT::Sequence({
+					new BT::Conditional(BT_Conditions::SeeHouse),
+					new BT::Action(BT_Actions::CheckHouses)
+				}),
+				new BT::Selector({
+					new BT::PartialSequence({
+						new BT::Conditional(std::bind(BT_Conditions::TimerReached, std::placeholders::_1, searchTimer)),
+						new BT::Action(std::bind(BT_Actions::LockTimer, std::placeholders::_1, searchTimer)),
+						new BT::Action(std::bind(BT_Actions::FindHouse, std::placeholders::_1, farRadius)),
+						new BT::Action(BT_Actions::GoToDestination)
+					}),
+					new BT::PartialSequence({
+						new BT::Action(std::bind(BT_Actions::SetTimer, std::placeholders::_1, searchTimer)),
+						new BT::Action(std::bind(BT_Actions::FindHouse, std::placeholders::_1, closeRadius)),
+						new BT::Action(std::bind(BT_Actions::LockTimer, std::placeholders::_1, searchTimer)),
+						new BT::Action(BT_Actions::GoToDestination)
+					})
+				})
 			})
 		}));
 }
@@ -46,10 +78,15 @@ Blackboard* SurvivalAgentPlugin::CreateBlackboard() const
 {
 	Blackboard* pBlackboard = new Blackboard();
 
-	//pBlackboard->AddData("Player position", m_pInterface->Agent_GetInfo().Position);
+	pBlackboard->AddData("Brain", m_pBrain);
 	pBlackboard->AddData("Interface", m_pInterface);
 	pBlackboard->AddData("Steering", SteeringPlugin_Output{});
 	pBlackboard->AddData("Target", m_Target);
+
+	pBlackboard->AddData("SearchTimerLock", true);
+	pBlackboard->AddData("SearchTimer", std::chrono::steady_clock::time_point{});
+	pBlackboard->AddData("MaxSearchTime", 5.f);
+	pBlackboard->AddData("MaxTravelDistance", 100.f);
 
 	return pBlackboard;
 }
@@ -168,10 +205,9 @@ SteeringPlugin_Output SurvivalAgentPlugin::UpdateSteering(float dt)
 	auto steering = SteeringPlugin_Output();
 
 	//Use the Interface (IAssignmentInterface) to 'interface' with the AI_Framework
-	UpdateBlackboard(steering);
+	auto agentInfo = m_pInterface->Agent_GetInfo();
 
-
-	/*//Use the navmesh to calculate the next navmesh point
+	//Use the navmesh to calculate the next navmesh point
 	//auto nextTargetPos = m_pInterface->NavMesh_GetClosestPathPoint(checkpointLocation);
 
 	//OR, Use the mouse target
@@ -254,7 +290,7 @@ SteeringPlugin_Output SurvivalAgentPlugin::UpdateSteering(float dt)
 
 	steering.AngularVelocity = m_AngSpeed; //Rotate your character to inspect the world while walking
 
-	steering.AutoOrient = false; //Setting AutoOrient to true overrides the AngularVelocity
+	//steering.AutoOrient = false; //Setting AutoOrient to true overrides the AngularVelocity
 	steering.RunMode = m_CanRun; //If RunMode is True > MaxLinearSpeed is increased for a limited time (until your stamina runs out)
 
 	//SteeringPlugin_Output is works the exact same way a SteeringBehaviour output
@@ -264,14 +300,7 @@ SteeringPlugin_Output SurvivalAgentPlugin::UpdateSteering(float dt)
 	m_GrabItem = false; //Reset State
 	m_UseItem = false;
 	m_RemoveItem = false;
-	m_DestroyItemsInFOV = false;*/
-
-	m_BehaviourTree->Update();
-
-	m_BehaviourTree->GetBlackboard()->GetData("Steering", steering);
-
-	steering.AngularVelocity = m_AngSpeed;
-	steering.AutoOrient = false;
+	m_DestroyItemsInFOV = false;
 
 	return steering;
 }
@@ -280,7 +309,7 @@ SteeringPlugin_Output SurvivalAgentPlugin::UpdateSteering(float dt)
 void SurvivalAgentPlugin::Render(float dt) const
 {
 	//This Render function should only contain calls to Interface->Draw_... functions
-	m_pInterface->Draw_SolidCircle(m_Target, .7f, { 0,0 }, { 1, 0, 0 });
+	m_pInterface->Draw_Circle(m_pInterface->Agent_GetInfo().Position, 50.f, { 1.f, 0.f, 0 });
 }
 
 

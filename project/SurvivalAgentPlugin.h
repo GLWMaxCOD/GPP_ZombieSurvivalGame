@@ -8,6 +8,7 @@ namespace BT
 }
 
 class Blackboard;
+class Brain;
 class IBaseInterface;
 class IExamInterface;
 
@@ -44,6 +45,7 @@ private:
 	Blackboard* CreateBlackboard() const;
 	void UpdateBlackboard(const SteeringPlugin_Output& steering) const;
 	BT::BehaviourTree* m_BehaviourTree;
+	Brain* m_pBrain;
 };
 
 //ENTRY

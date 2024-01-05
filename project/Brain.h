@@ -13,7 +13,9 @@ public:
 	Brain(Brain&&) = default;
 	Brain& operator=(Brain&&) = default;
 
-	void CheckIfNewHouse(const HouseInfo& newHouse);
+	bool NewHouseToExplore();
+	HouseInfo CheckHouseTarget(Elite::Vector2 playerPos, float maxRadius) const;
+	bool CheckHouses(const std::vector<HouseInfo>& FOVHouses);
 
 private:
 	struct HouseMemory
