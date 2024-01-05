@@ -4,37 +4,37 @@
 using namespace BT;
 
 #pragma region COMPOSITES
-Composite::Composite(const std::vector<IBehavior*>& childBehaviors)
+Composite::Composite(const std::vector<IBehaviour*>& childBehaviours)
 {
-	m_ChildBehaviors = childBehaviors;
+	m_ChildBehaviours = childBehaviours;
 }
 
 Composite::~Composite()
 {
-	for (auto pb : m_ChildBehaviors)
+	for (auto pb : m_ChildBehaviours)
 		SAFE_DELETE(pb)
-		m_ChildBehaviors.clear();
+		m_ChildBehaviours.clear();
 }
 
 //SELECTOR
-BehaviorState Selector::Execute(Blackboard* blackboardPtr)
+BehaviourState Selector::Execute(Blackboard* blackboardPtr)
 {
-	// Loop over all children in m_ChildBehaviors
-	for (IBehavior* pBeh : m_ChildBehaviors)
+	// Loop over all children in m_ChildBehaviours
+	for (IBehaviour* pBeh : m_ChildBehaviours)
 	{
 		//Every Child: Execute and store the result in m_CurrentState
 		m_CurrentState = pBeh->Execute(blackboardPtr);
 
 		//Check the currentstate and apply the selector Logic:
 		//if a child returns Success:
-		if (m_CurrentState == BehaviorState::Success)
+		if (m_CurrentState == BehaviourState::Success)
 		{
 			//stop looping over all children and return Success
 			return m_CurrentState;
 		}
 
 		//if a child returns Running:
-		if (m_CurrentState == BehaviorState::Running)
+		if (m_CurrentState == BehaviourState::Running)
 		{
 			//Running: stop looping and return Running
 			return m_CurrentState;
@@ -43,28 +43,28 @@ BehaviorState Selector::Execute(Blackboard* blackboardPtr)
 	}
 
 	//All children failed
-	m_CurrentState = BehaviorState::Failure;
+	m_CurrentState = BehaviourState::Failure;
 	return m_CurrentState;
 }
 //SEQUENCE
-BehaviorState Sequence::Execute(Blackboard* blackboardPtr)
+BehaviourState Sequence::Execute(Blackboard* blackboardPtr)
 {
-	//Loop over all children in m_ChildBehaviors
-	for (IBehavior* pBeh : m_ChildBehaviors)
+	//Loop over all children in m_ChildBehaviours
+	for (IBehaviour* pBeh : m_ChildBehaviours)
 	{
 		//Every Child: Execute and store the result in m_CurrentState
 		m_CurrentState = pBeh->Execute(blackboardPtr);
 
 		//Check the currentstate and apply the sequence Logic:
 		//if a child returns Failed:
-		if (m_CurrentState == BehaviorState::Failure)
+		if (m_CurrentState == BehaviourState::Failure)
 		{
 			//stop looping over all children and return Failed
 			return m_CurrentState;
 		}
 
 		//if a child returns Running:
-		if (m_CurrentState == BehaviorState::Running)
+		if (m_CurrentState == BehaviourState::Running)
 		{
 			//Running: stop looping and return Running
 			return m_CurrentState;
@@ -75,79 +75,79 @@ BehaviorState Sequence::Execute(Blackboard* blackboardPtr)
 	}
 
 	//All children succeeded 
-	m_CurrentState = BehaviorState::Success;
+	m_CurrentState = BehaviourState::Success;
 	return m_CurrentState;
 }
 
-BehaviorState PartialSequence::Execute(Blackboard* blackboardPtr)
+BehaviourState PartialSequence::Execute(Blackboard* blackboardPtr)
 {
-	while (m_CurrentBehaviorIndex < m_ChildBehaviors.size())
+	while (m_CurrentBehaviourIndex < m_ChildBehaviours.size())
 	{
-		m_CurrentState = m_ChildBehaviors[m_CurrentBehaviorIndex]->Execute(blackboardPtr);
+		m_CurrentState = m_ChildBehaviours[m_CurrentBehaviourIndex]->Execute(blackboardPtr);
 		switch (m_CurrentState)
 		{
-		case BehaviorState::Failure:
-			m_CurrentBehaviorIndex = 0;
+		case BehaviourState::Failure:
+			m_CurrentBehaviourIndex = 0;
 			return m_CurrentState;
-		case BehaviorState::Success:
-			++m_CurrentBehaviorIndex;
-			m_CurrentState = BehaviorState::Running;
+		case BehaviourState::Success:
+			++m_CurrentBehaviourIndex;
+			m_CurrentState = BehaviourState::Running;
 			return m_CurrentState;
-		case BehaviorState::Running:
+		case BehaviourState::Running:
 			return m_CurrentState;
 		}
 	}
 
-	m_CurrentBehaviorIndex = 0;
-	m_CurrentState = BehaviorState::Success;
+	m_CurrentBehaviourIndex = 0;
+	m_CurrentState = BehaviourState::Success;
 	return m_CurrentState;
 }
 #pragma endregion
 
 
-BehaviorState Conditional::Execute(Blackboard* blackboardPtr)
+BehaviourState Conditional::Execute(Blackboard* blackboardPtr)
 {
 	if (m_ConditionalPtr == nullptr)
-		return BehaviorState::Failure;
+		return BehaviourState::Failure;
 
 	if (m_ConditionalPtr(blackboardPtr))
 	{
-		m_CurrentState = BehaviorState::Success;
+		m_CurrentState = BehaviourState::Success;
 	}
 	else
 	{
-		m_CurrentState = BehaviorState::Failure;
+		m_CurrentState = BehaviourState::Failure;
 	}
 	return m_CurrentState;
 }
 
-BehaviorState Action::Execute(Blackboard* blackboardPtr)
+BehaviourState Action::Execute(Blackboard* blackboardPtr)
 {
 	if (m_ActionPtr == nullptr)
-		return BehaviorState::Failure;
+		return BehaviourState::Failure;
 
 	m_CurrentState = m_ActionPtr(blackboardPtr);
 	return m_CurrentState;
 }
 
-BehaviorTree::~BehaviorTree()
+BehaviourTree::~BehaviourTree()
 {
-	SAFE_DELETE(m_RootBehaviorPtr)
+	SAFE_DELETE(m_RootBehaviourPtr)
 		SAFE_DELETE(m_BlackboardPtr) //Takes ownership of passed blackboard!
 }
 
-void BehaviorTree::Update()
+void BehaviourTree::Update()
 {
-	if (m_RootBehaviorPtr == nullptr)
+	if (m_RootBehaviourPtr == nullptr)
 	{
-		m_CurrentState = BehaviorState::Failure;
+		m_CurrentState = BehaviourState::Failure;
 		return;
 	}
 
-	m_CurrentState = m_RootBehaviorPtr->Execute(m_BlackboardPtr);
+	m_CurrentState = m_RootBehaviourPtr->Execute(m_BlackboardPtr);
 }
 
-Blackboard* BehaviorTree::GetBlackboard() const
+Blackboard* BehaviourTree::GetBlackboard() const
 {
 	return m_BlackboardPtr;
 }

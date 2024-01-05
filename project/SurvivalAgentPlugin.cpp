@@ -1,12 +1,16 @@
 #include "stdafx.h"
 #include "SurvivalAgentPlugin.h"
 #include "IExamInterface.h"
+#include "BlackBoard.h"
 
 #undef NDEBUG
 #include <cassert>
 #define assertm(exp, msg) assert((msg, exp))
 
-using namespace std;
+SurvivalAgentPlugin::~SurvivalAgentPlugin()
+{
+	SAFE_DELETE(m_BehaviourTree)
+}
 
 //Called only once, during initialization
 void SurvivalAgentPlugin::Initialize(IBaseInterface* pInterface, PluginInfo& info)
@@ -20,6 +24,30 @@ void SurvivalAgentPlugin::Initialize(IBaseInterface* pInterface, PluginInfo& inf
 	info.Student_Name = "Tibo Van Hoorebeke"; //No special characters allowed. Highscores won't work with special characters.
 	info.Student_Class = "2DAE10";
 	info.LB_Password = "I_Believe_In_Acheron";//Don't use a real password! This is only to prevent other students from overwriting your highscore!
+
+	//---------------------------------------
+	// Setting up the AI
+	//---------------------------------------
+
+	Blackboard* pBlackboard{ CreateBlackboard() };
+
+	m_BehaviourTree = new BT::BehaviourTree(pBlackboard, {});
+}
+
+Blackboard* SurvivalAgentPlugin::CreateBlackboard()
+{
+	Blackboard* pBlackboard = new Blackboard();
+
+	pBlackboard->AddData("Player position", m_pInterface->Agent_GetInfo().Position);
+
+	return pBlackboard;
+}
+
+void SurvivalAgentPlugin::UpdateBlackboard() const
+{
+	Blackboard* pBlackboard{ m_BehaviourTree->GetBlackboard() };
+
+	pBlackboard->ChangeData("Player position", m_pInterface->Agent_GetInfo().Position);
 }
 
 //Called only once
@@ -41,7 +69,7 @@ void SurvivalAgentPlugin::InitGameDebugParams(GameDebugParams& params)
 	params.RenderUI = true; //Render the IMGUI Panel? (Default = true)
 	params.SpawnEnemies = true; //Do you want to spawn enemies? (Default = true)
 	params.EnemyCount = 20; //How many enemies? (Default = 20)
-	params.GodMode = false; //GodMode > You can't die, can be useful to inspect certain behaviors (Default = false)
+	params.GodMode = false; //GodMode > You can't die, can be useful to inspect certain Behaviours (Default = false)
 	params.LevelFile = "GameLevel.gppl";
 	params.AutoGrabClosestItem = true; //A call to Item_Grab(...) returns the closest item that can be grabbed. (EntityInfo argument is ignored)
 	params.StartingDifficultyStage = 1;
@@ -127,10 +155,10 @@ SteeringPlugin_Output SurvivalAgentPlugin::UpdateSteering(float dt)
 	auto steering = SteeringPlugin_Output();
 
 	//Use the Interface (IAssignmentInterface) to 'interface' with the AI_Framework
-	auto agentInfo = m_pInterface->Agent_GetInfo();
+	UpdateBlackboard();
 
 
-	//Use the navmesh to calculate the next navmesh point
+	/*//Use the navmesh to calculate the next navmesh point
 	//auto nextTargetPos = m_pInterface->NavMesh_GetClosestPathPoint(checkpointLocation);
 
 	//OR, Use the mouse target
@@ -223,7 +251,9 @@ SteeringPlugin_Output SurvivalAgentPlugin::UpdateSteering(float dt)
 	m_GrabItem = false; //Reset State
 	m_UseItem = false;
 	m_RemoveItem = false;
-	m_DestroyItemsInFOV = false;
+	m_DestroyItemsInFOV = false;*/
+
+	m_BehaviourTree->Update();
 
 	return steering;
 }

@@ -182,6 +182,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="Behaviour.h" />
     <ClInclude Include="BehaviourTree.h" />
     <ClInclude Include="BlackBoard.h" />
     <ClInclude Include="Brain.h" />
@@ -191,6 +192,7 @@
     <ClInclude Include="vld_def.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Behaviour.cpp" />
     <ClCompile Include="BehaviourTree.cpp" />
     <ClCompile Include="Brain.cpp" />
     <ClCompile Include="SurvivalAgentPlugin.cpp" />

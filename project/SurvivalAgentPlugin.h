@@ -1,15 +1,17 @@
 #pragma once
+#include "BehaviourTree.h"
 #include "IExamPlugin.h"
 #include "Exam_HelperStructs.h"
 
+class Blackboard;
 class IBaseInterface;
 class IExamInterface;
 
-class SurvivalAgentPlugin :public IExamPlugin
+class SurvivalAgentPlugin final : public IExamPlugin
 {
 public:
-	SurvivalAgentPlugin() {};
-	virtual ~SurvivalAgentPlugin() {};
+	SurvivalAgentPlugin() = default;
+	~SurvivalAgentPlugin() override;
 
 	void Initialize(IBaseInterface* pInterface, PluginInfo& info) override;
 	void DllInit() override;
@@ -34,6 +36,10 @@ private:
 	float m_AngSpeed = 5.f; //Demo purpose
 
 	UINT m_InventorySlot = 0;
+
+	Blackboard* CreateBlackboard();
+	void UpdateBlackboard() const;
+	BT::BehaviourTree* m_BehaviourTree;
 };
 
 //ENTRY
@@ -41,7 +47,7 @@ private:
 //The plugin returned by this function is also the plugin used by the host program
 extern "C"
 {
-	__declspec (dllexport) IPluginBase* Register()
+	inline __declspec (dllexport) IPluginBase* Register()
 	{
 		return new SurvivalAgentPlugin();
 	}

@@ -63,7 +63,7 @@ extern "C" {
 	//    those other threads. It was designed to work this way to insulate you,
 	//    the programmer, from having to ensure thread synchronization when calling
 	//    VLDEnable() and VLDDisable(). Without this, calling these two functions
-	//    unsynchronized could result in unpredictable and unintended behavior.
+	//    unsynchronized could result in unpredictable and unintended Behaviour.
 	//    But this also means that if you want to disable memory leak detection
 	//    process-wide, then you need to call this function from every thread in
 	//    the process.
@@ -85,7 +85,7 @@ extern "C" {
 	//    those other threads. It was designed to work this way to insulate you,
 	//    the programmer, from having to ensure thread synchronization when calling
 	//    VLDEnable() and VLDDisable(). Without this, calling these two functions
-	//    unsynchronized could result in unpredictable and unintended behavior.
+	//    unsynchronized could result in unpredictable and unintended Behaviour.
 	//    But this also means that if you want to enable memory leak detection
 	//    process-wide, then you need to call this function from every thread in
 	//    the process.

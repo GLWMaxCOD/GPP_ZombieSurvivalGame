@@ -5,6 +5,7 @@
     <ClCompile Include="stdafx.cpp" />
     <ClCompile Include="BehaviourTree.cpp" />
     <ClCompile Include="Brain.cpp" />
+    <ClCompile Include="Behaviour.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SurvivalAgentPlugin.h" />
@@ -14,5 +15,6 @@
     <ClInclude Include="Brain.h" />
     <ClInclude Include="vld.h" />
     <ClInclude Include="vld_def.h" />
+    <ClInclude Include="Behaviour.h" />
   </ItemGroup>
 </Project>

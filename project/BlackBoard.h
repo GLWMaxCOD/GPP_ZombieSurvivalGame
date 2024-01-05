@@ -10,9 +10,16 @@
 #include <unordered_map>
 #include <string>
 
+class IBlackBoardField
+{
+public:
+	IBlackBoardField() = default;
+	virtual ~IBlackBoardField() = default;
+};
+
 //BlackboardField does not take ownership of pointers whatsoever!
 template<typename T>
-class BlackboardField final
+class BlackboardField : public IBlackBoardField
 {
 public:
 	explicit BlackboardField(T data) : m_Data(data)
@@ -33,7 +40,7 @@ public:
 	Blackboard() = default;
 	~Blackboard()
 	{
-		for (const auto el : m_BlackboardData)
+		for (auto el : m_BlackboardData)
 			delete el.second;
 		m_BlackboardData.clear();
 	}
@@ -87,5 +94,5 @@ public:
 	}
 
 private:
-	std::unordered_map<std::string, Blackboard*> m_BlackboardData;
+	std::unordered_map<std::string, IBlackBoardField*> m_BlackboardData;
 };
