@@ -39,3 +39,8 @@
 #pragma endregion
 
 #define SAFE_DELETE(p) if (p) { delete (p); (p) = nullptr; }
+#if _DEBUG
+
+#define USE_VLD
+#include <VLD/vld.h>
+#endif

@@ -182,10 +182,17 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="BehaviourTree.h" />
+    <ClInclude Include="BlackBoard.h" />
+    <ClInclude Include="Brain.h" />
     <ClInclude Include="SurvivalAgentPlugin.h" />
     <ClInclude Include="stdafx.h" />
+    <ClInclude Include="vld.h" />
+    <ClInclude Include="vld_def.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="BehaviourTree.cpp" />
+    <ClCompile Include="Brain.cpp" />
     <ClCompile Include="SurvivalAgentPlugin.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>

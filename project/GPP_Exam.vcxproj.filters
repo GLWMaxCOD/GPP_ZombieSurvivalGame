@@ -3,9 +3,16 @@
   <ItemGroup>
     <ClCompile Include="SurvivalAgentPlugin.cpp" />
     <ClCompile Include="stdafx.cpp" />
+    <ClCompile Include="BehaviourTree.cpp" />
+    <ClCompile Include="Brain.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SurvivalAgentPlugin.h" />
     <ClInclude Include="stdafx.h" />
+    <ClInclude Include="BehaviourTree.h" />
+    <ClInclude Include="BlackBoard.h" />
+    <ClInclude Include="Brain.h" />
+    <ClInclude Include="vld.h" />
+    <ClInclude Include="vld_def.h" />
   </ItemGroup>
 </Project>

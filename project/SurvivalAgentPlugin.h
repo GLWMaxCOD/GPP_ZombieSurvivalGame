@@ -31,7 +31,7 @@ private:
 	bool m_UseItem = false; //Demo purpose
 	bool m_RemoveItem = false; //Demo purpose
 	bool m_DestroyItemsInFOV = false;
-	float m_AngSpeed = 0.f; //Demo purpose
+	float m_AngSpeed = 5.f; //Demo purpose
 
 	UINT m_InventorySlot = 0;
 };

@@ -2,6 +2,10 @@
 #include "SurvivalAgentPlugin.h"
 #include "IExamInterface.h"
 
+#undef NDEBUG
+#include <cassert>
+#define assertm(exp, msg) assert((msg, exp))
+
 using namespace std;
 
 //Called only once, during initialization
@@ -12,10 +16,10 @@ void SurvivalAgentPlugin::Initialize(IBaseInterface* pInterface, PluginInfo& inf
 	m_pInterface = static_cast<IExamInterface*>(pInterface);
 
 	//Information for the leaderboards!
-	info.BotName = "MinionExam";
-	info.Student_Name = "JOHN CENA"; //No special characters allowed. Highscores won't work with special characters.
-	info.Student_Class = "2DAE00";
-	info.LB_Password = "TheChampIsHere123!";//Don't use a real password! This is only to prevent other students from overwriting your highscore!
+	info.BotName = "Barnabas";
+	info.Student_Name = "Tibo Van Hoorebeke"; //No special characters allowed. Highscores won't work with special characters.
+	info.Student_Class = "2DAE10";
+	info.LB_Password = "I_Believe_In_Acheron";//Don't use a real password! This is only to prevent other students from overwriting your highscore!
 }
 
 //Called only once
@@ -47,7 +51,7 @@ void SurvivalAgentPlugin::InitGameDebugParams(GameDebugParams& params)
 	params.SpawnPurgeZonesOnMiddleClick = true;
 	params.PrintDebugMessages = true;
 	params.ShowDebugItemNames = true;
-	params.Seed = 0; //-1 = don't set seed. Any other number = fixed seed //TIP: use Seed = int(time(nullptr)) for pure randomness
+	params.Seed = static_cast<int>(time(nullptr)); //-1 = don't set seed. Any other number = fixed seed //TIP: use Seed = int(time(nullptr)) for pure randomness
 }
 
 //Only Active in DEBUG Mode
@@ -207,9 +211,9 @@ SteeringPlugin_Output SurvivalAgentPlugin::UpdateSteering(float dt)
 		steering.LinearVelocity = Elite::ZeroVector2;
 	}
 
-	//steering.AngularVelocity = m_AngSpeed; //Rotate your character to inspect the world while walking
+	steering.AngularVelocity = m_AngSpeed; //Rotate your character to inspect the world while walking
 
-	steering.AutoOrient = true; //Setting AutoOrient to true overrides the AngularVelocity
+	steering.AutoOrient = false; //Setting AutoOrient to true overrides the AngularVelocity
 	steering.RunMode = m_CanRun; //If RunMode is True > MaxLinearSpeed is increased for a limited time (until your stamina runs out)
 
 	//SteeringPlugin_Output is works the exact same way a SteeringBehaviour output
