@@ -17,9 +17,11 @@ namespace Branch
 					new BT::Conditional(std::bind(BT_Conditions::HpUnderThreshold, std::placeholders::_1, HpThreshold)),
 					new BT::Action(std::bind(BT_Actions::UseItem, std::placeholders::_1, eItemType::MEDKIT))
 				}),
-				//new BT::Sequence({
-				//
-				//})
+				new BT::Sequence({
+					new BT::Conditional(std::bind(BT_Conditions::ItemInInv, std::placeholders::_1, eItemType::FOOD)),
+					new BT::Conditional(BT_Conditions::CheckMinNeededEnergy),
+					new BT::Action(std::bind(BT_Actions::UseItem, std::placeholders::_1, eItemType::FOOD))
+				})
 			});
 	}
 

@@ -480,6 +480,19 @@ namespace BT_Conditions
 		return pInterface->Agent_GetInfo().Health <= threshold;
 	}
 
+	bool CheckMinNeededEnergy(Blackboard* pBlackboard)
+	{
+		IExamInterface* pInterface{};
+		Brain* pBrain{};
+
+		pBlackboard->GetData("Interface", pInterface);
+		pBlackboard->GetData("Brain", pBrain);
+
+		const auto item = pBrain->FindLeastValueItem(eItemType::FOOD);
+
+		return pInterface->Agent_GetInfo().Energy <= 10.f - item->ItemInfo.Value;
+	}
+
 	bool InsideTargetHouse(Blackboard* pBlackboard)
 	{
 		IExamInterface* pInterface{};

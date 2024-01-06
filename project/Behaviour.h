@@ -46,6 +46,7 @@ namespace BT_Conditions
 	bool EmptyValue(Blackboard* pBlackboard);
 	bool ItemInInv(Blackboard* pBlackboard, eItemType type);
 	bool HpUnderThreshold(Blackboard* pBlackboard, float threshold);
+	bool CheckMinNeededEnergy(Blackboard* pBlackboard);
 
 	bool InsideTargetHouse(Blackboard* pBlackboard);
 	bool NewHouse(Blackboard* pBlackboard);
