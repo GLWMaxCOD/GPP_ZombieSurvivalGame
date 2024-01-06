@@ -34,7 +34,7 @@ void SurvivalAgentPlugin::Initialize(IBaseInterface* pInterface, PluginInfo& inf
 	Blackboard* pBlackboard{ CreateBlackboard() };
 	m_BehaviourTree = new BT::BehaviourTree(pBlackboard, 
 		new BT::Selector({
-			Branch::ItemHandling(),
+			Branch::PickUpHandling(),
 			Branch::HouseHandling()
 		}));
 }
@@ -48,13 +48,17 @@ Blackboard* SurvivalAgentPlugin::CreateBlackboard() const
 	pBlackboard->AddData("Steering", SteeringPlugin_Output{});
 	pBlackboard->AddData("Target", m_Target);
 	pBlackboard->AddData("Spin", false);
+	pBlackboard->AddData("FailSafe", std::chrono::steady_clock::time_point{});
+	pBlackboard->AddData("MaxFailSafe", 7.f);
+	pBlackboard->AddData("FailSafeDoOnce", false);
 
 	pBlackboard->AddData("TargetItem", ItemInfo{});
 	pBlackboard->AddData("NextFreeSlot", 0);
 
-	pBlackboard->AddData("Search radius", 200);
 	pBlackboard->AddData("TargetHouse", HouseInfo{});
-	pBlackboard->AddData("MaxTravelDistance", 200.f);
+	pBlackboard->AddData("TimerBeforeLeaving", std::chrono::steady_clock::time_point{});
+	pBlackboard->AddData("TimerBeforeLeavingDoOnce", false);
+	pBlackboard->AddData("MaxTimeBeforeLeaving", 3.f);
 
 	return pBlackboard;
 }
@@ -310,7 +314,8 @@ void SurvivalAgentPlugin::Render(float dt) const
 {
 	//This Render function should only contain calls to Interface->Draw_... functions
 	m_pInterface->Draw_SolidCircle(m_Target, .7f, { 0,0 }, { 1, 0, 0 });
-	m_pInterface->Draw_Circle(m_pInterface->Agent_GetInfo().Position, 200.f, { 1.f, 0.f, 0 });
+	m_pInterface->Draw_Circle(m_pInterface->Agent_GetInfo().Position, 300.f, { 1.f, 0.f, 0 });
+	m_pInterface->Draw_Circle(m_pInterface->Agent_GetInfo().Position, 100.f, { 1.f, 1.f, 0 });
 }
 
 

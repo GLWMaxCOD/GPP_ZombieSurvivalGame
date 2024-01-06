@@ -14,8 +14,11 @@ public:
 	Brain& operator=(Brain&&) = default;
 
 	bool IsInvFull() const;
-	int AddItemToMemory(const ItemInfo& itemInfo);
+	int AddItemToMemory(const ItemInfo& newItem);
+	int CheckItem(const ItemInfo& newItem, int maxItems);
+	bool CheckIfTargetIsInside(const HouseInfo& targetHouse, Elite::Vector2 playerPos);
 
+	bool CheckIfTargetIsExplored(Elite::Vector2 target, float offset) const;
 	bool NewHouseToExplore();
 	bool HouseToReExplore();
 	void SetTargetHouseExpireDate(const HouseInfo& targetHouse);
@@ -27,18 +30,22 @@ private:
 	{
 		bool newHouse{ true };
 		HouseInfo houseInfo;
-		std::chrono::steady_clock::time_point unExploreTimer;
+		std::chrono::steady_clock::time_point waitTimer;
 	};
 
-	struct InvMemory
+	struct InventoryMemory
 	{
-		ItemInfo item;
-
+		ItemInfo ItemInfo;
+		int ItemIndex;
 	};
 
 	std::vector<HouseMemory> m_HousesMemory{};
-	const float m_MaxUnExplorable{ 60.f };
+	const float m_MaxWaitTimer{ 360.f };
 
-	std::vector<ItemInfo> m_InvMemory{};
+	std::vector<InventoryMemory> m_InventoryMemory{};
 	const size_t m_MaxInvSize{ 5 };
+
+	int CheckAmountOfType(eItemType type);
+	std::vector<InventoryMemory>::iterator CheckValueOfItem(const ItemInfo& item);
+	std::vector<HouseMemory>::iterator FindHouseInMemory(const HouseInfo& targetHouse);
 };

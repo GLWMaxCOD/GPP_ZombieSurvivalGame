@@ -6,7 +6,7 @@
 
 namespace Branch
 {
-	BT::PartialSequence* ItemHandling()
+	BT::PartialSequence* PickUpHandling()
 	{
 		return
 			new BT::PartialSequence({
@@ -20,21 +20,77 @@ namespace Branch
 						new BT::Action(BT_Actions::DestroyItemOnFloor)
 					}),
 					new BT::Sequence({
+						new BT::Conditional(BT_Conditions::InvIsFull),
+						new BT::Action(BT_Actions::DestroyItemOnFloor),
+						new BT::Selector({
+							new BT::Sequence({
+								new BT::Conditional(std::bind(BT_Conditions::IsTypeOfItem, std::placeholders::_1, eItemType::FOOD)),
+							}),
+							new BT::Sequence({
+								new BT::Conditional(std::bind(BT_Conditions::IsTypeOfItem, std::placeholders::_1, eItemType::MEDKIT)),
+							}),
+							new BT::Sequence({
+								new BT::Conditional(std::bind(BT_Conditions::IsTypeOfItem, std::placeholders::_1, eItemType::SHOTGUN)),
+							}),
+							new BT::Sequence({
+								new BT::Conditional(std::bind(BT_Conditions::IsTypeOfItem, std::placeholders::_1, eItemType::PISTOL)),
+							}),
+						})
+					}),
+					new BT::Sequence({
 						new BT::Conditional(BT_Conditions::InvIsNotFull),
 						new BT::Action(BT_Actions::PickUpItem)
 					})
 				})
-				});
+			});
 	}
 
 	BT::Selector* HouseHandling()
 	{
-		constexpr float maxTravelDistance{ 200.f };
-		constexpr int searchRadius{ 100 };
-		constexpr int exitingOffset{ 10 };
+		constexpr float maxTravelDistance{ 100.f };
+		constexpr int searchRadius{ 300 };
+		constexpr int searchDegree{ 45 };
+		constexpr float InsideOffset{ 5.f };
+
+		const std::string BeforeLeavingTimer{ "BeforeLeaving" };
+		constexpr bool BeforeLeavingDoOnce{ true };
 
 		return
 			new BT::Selector({
+				new BT::PartialSequence({
+					new BT::Conditional(BT_Conditions::InsideTargetHouse),
+					new BT::Action(BT_Actions::SetExpireDate),
+					new BT::Action(std::bind(BT_Actions::SetTimer, std::placeholders::_1, BeforeLeavingTimer, BeforeLeavingDoOnce)),
+					new BT::Selector({
+						new BT::PartialSequence({
+							new BT::Conditional(std::bind(BT_Conditions::CheckTimer, std::placeholders::_1, BeforeLeavingTimer, BeforeLeavingDoOnce)),
+							new BT::Selector({
+								new BT::PartialSequence({
+									new BT::Conditional(BT_Conditions::NewHouse),
+									new BT::Action(std::bind(BT_Actions::GetHouseAsTarget, std::placeholders::_1, maxTravelDistance)),
+									new BT::Action(BT_Actions::EnableSpin),
+									new BT::Action(BT_Actions::GoToDestination),
+								}),
+								new BT::PartialSequence({
+									new BT::Conditional(BT_Conditions::ReExploreHouse),
+									new BT::Action(std::bind(BT_Actions::GetHouseAsTarget, std::placeholders::_1, maxTravelDistance)),
+									new BT::Action(BT_Actions::EnableSpin),
+									new BT::Action(BT_Actions::GoToDestination),
+								}),
+								new BT::PartialSequence({
+									new BT::Action(std::bind(BT_Actions::TryFindHouse, std::placeholders::_1, searchRadius)),
+									new BT::Action(BT_Actions::EnableSpin),
+									new BT::Action(BT_Actions::GoToDestination)
+								})
+							}),
+						}),
+						new BT::PartialSequence({
+							new BT::Action(std::bind(BT_Actions::GetInsideTarget, std::placeholders::_1, InsideOffset)),
+							new BT::Action(BT_Actions::EnableSpin),
+							new BT::Action(BT_Actions::GoToDestination)
+						}),
+					})
+				}),
 				new BT::Sequence({
 					new BT::Conditional(BT_Conditions::SeeHouse),
 					new BT::Action(BT_Actions::CheckHouses)
@@ -45,22 +101,12 @@ namespace Branch
 						new BT::Action(std::bind(BT_Actions::GetHouseAsTarget, std::placeholders::_1, maxTravelDistance)),
 						new BT::Action(BT_Actions::EnableSpin),
 						new BT::Action(BT_Actions::GoToDestination),
-						new BT::Action(BT_Actions::SetExpireDate),
-						new BT::PartialSequence({
-							new BT::Action(std::bind(BT_Actions::GetOutsideTarget, std::placeholders::_1, exitingOffset)),
-							new BT::Action(BT_Actions::GoToDestination)
-						})
 					}),
 					new BT::PartialSequence({
 						new BT::Conditional(BT_Conditions::ReExploreHouse),
 						new BT::Action(std::bind(BT_Actions::GetHouseAsTarget, std::placeholders::_1, maxTravelDistance)),
 						new BT::Action(BT_Actions::EnableSpin),
 						new BT::Action(BT_Actions::GoToDestination),
-						new BT::Action(BT_Actions::SetExpireDate),
-						new BT::PartialSequence({
-							new BT::Action(std::bind(BT_Actions::GetOutsideTarget, std::placeholders::_1, exitingOffset)),
-							new BT::Action(BT_Actions::GoToDestination)
-						})
 					})
 				}),
 				new BT::PartialSequence({
@@ -68,6 +114,6 @@ namespace Branch
 					new BT::Action(BT_Actions::EnableSpin),
 					new BT::Action(BT_Actions::GoToDestination)
 				})
-				});
+			});
 	}
 }

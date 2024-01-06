@@ -4,6 +4,8 @@
 #include <IExamInterface.h>
 #include "Brain.h"
 
+#define TO_RAD(i) i * (M_PI / 180)
+
 static int randNumRange(int minRange, int maxRange)
 {
 	std::random_device rd;
@@ -15,17 +17,61 @@ static int randNumRange(int minRange, int maxRange)
 
 namespace BT_Actions
 {
+	BT::State SetTimer(Blackboard* pBlackboard, const std::string& timerName, bool doOnce)
+	{
+		bool didOnce{};
+		pBlackboard->GetData("Timer" + timerName + "DoOnce", didOnce);
+
+		if (doOnce && didOnce)
+			return BT::State::Success;
+
+		if (doOnce)
+			pBlackboard->ChangeData("Timer" + timerName + "DoOnce", true);
+
+		pBlackboard->ChangeData("Timer" + timerName, std::chrono::steady_clock::now());
+
+		return BT::State::Success;
+	}
+
+	BT::State UnlockTimer(Blackboard* pBlackboard, const std::string& timerName)
+	{
+		pBlackboard->ChangeData("TimerLock" + timerName, false);
+
+		return BT::State::Success;
+	}
+
+	BT::State LockTimer(Blackboard* pBlackboard, const std::string& timerName)
+	{
+		pBlackboard->ChangeData("TimerLock" + timerName, true);
+
+		return BT::State::Success;
+	}
+
 	BT::State GoToDestination(Blackboard* pBlackboard)
 	{
 		IExamInterface* pInterface{};
 		Elite::Vector2 target{};
 		SteeringPlugin_Output steering{};
 
+		std::chrono::steady_clock::time_point timer{};
+		float maxTime{};
+		bool doOnce{};
+
 		pBlackboard->GetData("Interface", pInterface);
 		pBlackboard->GetData("Target", target);
 		pBlackboard->GetData("Steering", steering);
 
-		std::cout << "target received " << target << "\n";
+		//std::cout << "target received " << target << "\n";
+
+		pBlackboard->GetData("FailSafe", timer);
+		pBlackboard->GetData("MaxFailSafe", maxTime);
+		pBlackboard->GetData("FailSafeDoOnce", doOnce);
+
+		if (!doOnce)
+		{
+			pBlackboard->ChangeData("FailSafe", std::chrono::steady_clock::now());
+			pBlackboard->ChangeData("FailSafeDoOnce", true);
+		}
 
 		const auto agentInfo = pInterface->Agent_GetInfo();
 
@@ -33,13 +79,20 @@ namespace BT_Actions
 
 		steering.LinearVelocity = nextTargetPos - agentInfo.Position;
 		steering.LinearVelocity.Normalize();
-		steering.LinearVelocity *= agentInfo.MaxLinearSpeed;
+		steering.LinearVelocity *= agentInfo.MaxLinearSpeed * 100;
+
+		const std::chrono::steady_clock::time_point currentTime{ std::chrono::steady_clock::now() };
+		const std::chrono::duration<float> elapsedSec{ currentTime - timer };
+
+		if (elapsedSec.count() > maxTime)
+		{
+			pBlackboard->ChangeData("FailSafeDoOnce", false);
+			return BT::State::Success;
+		}
 
 		if (Distance(target, agentInfo.Position) < 2.f)
 		{
-			steering.LinearVelocity = Elite::ZeroVector2;
-
-			std::cout << "target reached at " << target << "\n";
+			pBlackboard->ChangeData("FailSafeDoOnce", false);
 
 			return BT::State::Success;
 		}
@@ -103,7 +156,10 @@ namespace BT_Actions
 
 		pInterface->DestroyItem(targetItem);
 
-		return BT::State::Success;
+		if (pInterface->DestroyItem(targetItem))
+			return BT::State::Success;
+
+		return BT::State::Failure;
 	}
 
 	BT::State PickUpItem(Blackboard* pBlackboard)
@@ -118,42 +174,91 @@ namespace BT_Actions
 		pBlackboard->GetData("TargetItem", targetItem);
 		pBlackboard->GetData("NextFreeSlot", freeSlot);
 
-		pInterface->GrabItem(targetItem);
-		pInterface->Inventory_AddItem(freeSlot, targetItem);
+		if (pInterface->GrabItem(targetItem))
+		{
+			pInterface->Inventory_AddItem(freeSlot, targetItem);
+			pBlackboard->ChangeData("NextFreeSlot", pBrain->AddItemToMemory(targetItem));
+			return BT::State::Success;
+		}
 
-		pBlackboard->ChangeData("NextFreeSlot", pBrain->AddItemToMemory(targetItem));
+		return BT::State::Failure;
+	}
+
+	BT::State CheckItem(Blackboard* pBlackboard, int maxItems)
+	{
+		IExamInterface* pInterface{};
+		Brain* pBrain{};
+		ItemInfo targetItem{};
+
+		pBlackboard->GetData("Interface", pInterface);
+		pBlackboard->GetData("Brain", pBrain);
+		pBlackboard->GetData("TargetItem", targetItem);
+
+		const int slotIndex{ pBrain->CheckItem(targetItem, maxItems) };
+
+		if (slotIndex >= INT_MAX)
+		{
+			return BT::State::Failure;
+		}
+
+		pInterface->Inventory_RemoveItem(slotIndex);
+		pInterface->GrabItem(targetItem);
+		pInterface->Inventory_AddItem(slotIndex, targetItem);
 
 		return BT::State::Success;
 	}
 
-	BT::State TryFindHouse(Blackboard* pBlackboard, int searchRadius)
+	BT::State TryFindHouse(Blackboard* pBlackboard, float searchRadius)
 	{
 		IExamInterface* pInterface{};
+		Brain* pBrain{};
 
 		pBlackboard->GetData("Interface", pInterface);
+		pBlackboard->GetData("Brain", pBrain);
 
-		const Elite::Vector2 randomLocation(randNumRange(-searchRadius, searchRadius),
-			randNumRange(-searchRadius, searchRadius));
+		const Elite::Vector2 playerPos{ pInterface->Agent_GetInfo().Position };
 
-		const Elite::Vector2 target = pInterface->NavMesh_GetClosestPathPoint(randomLocation);
+		float closestTarget{ FLT_MAX };
+		Elite::Vector2 finalTarget{};
 
-		if (randomLocation != target)
+		for (int i = 0; i <= 360; i += 1)
 		{
-			pBlackboard->ChangeData("Target", randomLocation);
+			const Elite::Vector2 pointOnCircle{ searchRadius * std::cosf(TO_RAD(i)), searchRadius * std::sinf(TO_RAD(i)) };
+			const Elite::Vector2 target = pInterface->NavMesh_GetClosestPathPoint(pointOnCircle);
 
-			return BT::State::Success;
+			if (pointOnCircle != target)
+			{
+				constexpr float houseOffset{ 5.f };
+				if (pBrain->CheckIfTargetIsExplored(target, houseOffset))
+					continue;
+
+				const float targetDistance{ playerPos.DistanceSquared(target) };
+
+				if (closestTarget > targetDistance)
+				{
+					closestTarget = targetDistance;
+					finalTarget = target;
+				}
+			}
 		}
 
-		return BT::State::Running;
+		if (finalTarget == Elite::Vector2{})
+		{
+			std::cout << "-_-\n";
+		}
+
+		pBlackboard->ChangeData("Target", finalTarget);
+
+		return BT::State::Success;
 	}
 
 	BT::State GetHouseAsTarget(Blackboard* pBlackboard, float maxTravelDistance)
 	{
-		Brain* pBrain{};
 		IExamInterface* pInterface{};
+		Brain* pBrain{};
 
-		pBlackboard->GetData("Brain", pBrain);
 		pBlackboard->GetData("Interface", pInterface);
+		pBlackboard->GetData("Brain", pBrain);
 
 		const HouseInfo targetHouse{ pBrain->CheckHouseValidTarget(pInterface->Agent_GetInfo().Position, maxTravelDistance) };
 
@@ -196,15 +301,18 @@ namespace BT_Actions
 		return BT::State::Success;
 	}
 
-	BT::State GetOutsideTarget(Blackboard* pBlackboard, int offset)
+	BT::State GetInsideTarget(Blackboard* pBlackboard, float offset)
 	{
+		std::cout << "inside\n";
+
 		HouseInfo targetHouse{};
 		pBlackboard->GetData("TargetHouse", targetHouse);
 
 		const Elite::Vector2 houseSize{ targetHouse.Size };
+		const Elite::Vector2 houseCenter{ targetHouse.Center };
 
-		const Elite::Vector2 targetLocation(randNumRange(int(houseSize.x), int(houseSize.x + offset)),
-			randNumRange(int(houseSize.y), int(houseSize.y + offset)));
+		const Elite::Vector2 targetLocation(randNumRange(int(houseCenter.x - houseSize.x / 2 + offset), int(houseCenter.x + houseSize.x / 2 - offset)),
+											randNumRange(int(houseCenter.y - houseSize.y / 2 + offset), int(houseCenter.y + houseSize.y / 2 - offset)));
 
 		pBlackboard->ChangeData("Target", targetLocation);
 
@@ -214,6 +322,38 @@ namespace BT_Actions
 
 namespace BT_Conditions
 {
+	bool CheckTimerLock(Blackboard* pBlackboard, const std::string& timerName)
+	{
+		bool lock{};
+		pBlackboard->GetData(timerName + "TimerLock", lock);
+
+		return !lock;
+	}
+
+	bool CheckTimer(Blackboard* pBlackboard, const std::string& timerName, bool doOnce)
+	{
+		std::chrono::steady_clock::time_point timer{};
+		float maxTime{};
+
+		pBlackboard->GetData("Timer" + timerName, timer);
+		pBlackboard->GetData("MaxTime" + timerName, maxTime);
+
+		const std::chrono::steady_clock::time_point currentTime{ std::chrono::steady_clock::now() };
+		const std::chrono::duration<float> elapsedSec{ currentTime - timer };
+
+		if (elapsedSec.count() > maxTime)
+		{
+			std::cout << "timer Reached\n";
+
+			if (doOnce)
+				pBlackboard->ChangeData("Timer" + timerName + "DoOnce", false);
+
+			return true;
+		}
+
+		return false;
+	}
+
 	bool SeeItem(Blackboard* pBlackboard)
 	{
 		IExamInterface* pInterface{};
@@ -243,12 +383,22 @@ namespace BT_Conditions
 		return !InvIsFull(pBlackboard);
 	}
 
-	bool InsideHouse(Blackboard* pBlackboard)
+	bool InsideTargetHouse(Blackboard* pBlackboard)
 	{
 		IExamInterface* pInterface{};
-		pBlackboard->GetData("Interface", pInterface);
+		Brain* pBrain{};
+		HouseInfo targetHouse{};
 
-		return pInterface->Agent_GetInfo().IsInHouse;
+		pBlackboard->GetData("Interface", pInterface);
+		pBlackboard->GetData("Brain", pBrain);
+		pBlackboard->GetData("TargetHouse", targetHouse);
+
+		if (pInterface->Agent_GetInfo().IsInHouse)
+		{
+			return pBrain->CheckIfTargetIsInside(targetHouse, pInterface->Agent_GetInfo().Position);
+		}
+
+		return false;
 	}
 
 	bool SeeHouse(Blackboard* pBlackboard)
