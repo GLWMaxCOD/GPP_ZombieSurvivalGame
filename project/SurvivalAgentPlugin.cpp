@@ -34,6 +34,7 @@ void SurvivalAgentPlugin::Initialize(IBaseInterface* pInterface, PluginInfo& inf
 	Blackboard* pBlackboard{ CreateBlackboard() };
 	m_BehaviourTree = new BT::BehaviourTree(pBlackboard, 
 		new BT::Selector({
+			Branch::ItemHandling(),
 			Branch::PickUpHandling(),
 			Branch::HouseHandling()
 		}));
@@ -58,7 +59,7 @@ Blackboard* SurvivalAgentPlugin::CreateBlackboard() const
 	pBlackboard->AddData("TargetHouse", HouseInfo{});
 	pBlackboard->AddData("TimerBeforeLeaving", std::chrono::steady_clock::time_point{});
 	pBlackboard->AddData("TimerBeforeLeavingDoOnce", false);
-	pBlackboard->AddData("MaxTimeBeforeLeaving", 3.f);
+	pBlackboard->AddData("MaxTimeBeforeLeaving", 5.f);
 
 	return pBlackboard;
 }
@@ -166,7 +167,6 @@ void SurvivalAgentPlugin::Update_Debug(float dt)
 	{
 		ItemInfo info = {};
 		m_pInterface->Inventory_GetItem(m_InventorySlot, info);
-		std::cout << (int)info.Type << std::endl;
 	}
 }
 

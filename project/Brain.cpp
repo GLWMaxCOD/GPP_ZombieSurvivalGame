@@ -2,49 +2,103 @@
 #include "Brain.h"
 #include <algorithm>
 
-bool Brain::IsInvFull() const
+std::vector<Brain::InventoryMemory>::iterator Brain::FindLeastValueItem(const eItemType& itemType)
 {
-	return m_InventoryMemory.capacity() > m_MaxInventorySlots - 1;
-}
+	std::ranges::partition(m_InventoryMemory,
+		[itemType](const InventoryMemory& memory)->bool { return memory.ItemInfo.Type == itemType; });
 
-int Brain::AddItemToMemory(const ItemInfo& item)
-{
-	assert(m_InventoryMemory.capacity() < m_MaxInventorySlots);
-
-	const InventoryMemory itemToMemory{ item, static_cast<int>(m_InventoryMemory.capacity()) };
-
-	m_InventoryMemory.push_back(itemToMemory);
-
-	return static_cast<int>(m_InventoryMemory.capacity());
-}
-
-int Brain::CheckItem(const ItemInfo& item)
-{
-	if (std::any_of(std::begin(m_InventoryMemory), std::end(m_InventoryMemory),
-		[item](const InventoryMemory& memory)->bool { return memory.ItemInfo.Type == item.Type; }))
-	{
-		std::partition(std::begin(m_InventoryMemory), std::end(m_InventoryMemory),
-			[item](const InventoryMemory& memory)->bool { return memory.ItemInfo.Type == item.Type; });
-
-		auto minItem = std::min_element(std::begin(m_InventoryMemory), std::end(m_InventoryMemory),
-			[item](const InventoryMemory& lhs, const InventoryMemory& rhs)->bool
+	const auto minItem =
+		std::ranges::min_element(m_InventoryMemory,
+			[itemType](const InventoryMemory& lhs, const InventoryMemory& rhs)->bool
 			{
-				if (lhs.ItemInfo.Type == item.Type && rhs.ItemInfo.Type == item.Type)
+				if (lhs.ItemInfo.Type == itemType && rhs.ItemInfo.Type == itemType)
 				{
 					return lhs.ItemInfo.Value < rhs.ItemInfo.Value;
 				}
 				return false;
 			});
+
+	return minItem;
+}
+
+bool Brain::IsInvNotFull() const
+{
+	return m_InventoryMemory.capacity() < m_MaxInventorySlots - 1;
+}
+
+bool Brain::IsItemInInv(const eItemType& itemType)
+{
+	return std::ranges::any_of(m_InventoryMemory,
+		[itemType](const InventoryMemory& memory)->bool
+			{ return memory.ItemInfo.Type == itemType; });
+}
+
+bool Brain::EmptyValue()
+{
+	return std::ranges::any_of(m_InventoryMemory,
+		[](const InventoryMemory& memory)->bool
+		{ return memory.ItemInfo.Value <= 0; });
+}
+
+int Brain::FindEmptyValue(const ItemInfo& item)
+{
+	const auto FirstItem =
+		std::ranges::find_if(m_InventoryMemory,
+			[](const InventoryMemory& memory)->bool
+				{ return memory.ItemInfo.Value <= 0; });
+
+	FirstItem->ItemInfo = item;
+
+	return FirstItem->invIndex;
+}
+
+int Brain::AddItemToMemory(const ItemInfo& item)
+{
+	if (m_InventoryMemory.capacity() > m_MaxInventorySlots)
+		return m_MaxInventorySlots - 1;
+
+	const InventoryMemory itemToMemory{ item, m_InventoryMemory.capacity() };
+
+	m_InventoryMemory.push_back(itemToMemory);
+
+	return m_InventoryMemory.capacity();
+}
+
+int Brain::CheckItem(const ItemInfo& item)
+{
+	if (std::ranges::any_of(m_InventoryMemory,
+		[item](const InventoryMemory& memory)->bool
+			{ return memory.ItemInfo.Type == item.Type; }))
+	{
+		const auto minItem{ FindLeastValueItem(item.Type) };
 		if (minItem->ItemInfo.Value <= item.Value)
 		{
-			return minItem->ItemIndex;
+			minItem->ItemInfo = item;
+			return minItem->invIndex;
 		}
 		else
 		{
-			return 4;
+			return m_MaxInventorySlots - 1;
 		}
 	}
-	return INT_MAX;
+	else
+	{
+		std::ranges::sort(m_InventoryMemory,
+			[](const InventoryMemory& lhs, const InventoryMemory& rhs)->bool
+			{ return lhs.ItemInfo.Type < rhs.ItemInfo.Type; });
+		const auto duplicate =
+			std::ranges::adjacent_find(m_InventoryMemory,
+				[](const InventoryMemory& lhs, const InventoryMemory& rhs)->bool
+				{ return lhs.ItemInfo.Type == rhs.ItemInfo.Type; });
+
+		const auto minItem =
+			std::min_element(duplicate, duplicate + 1,
+				[](const InventoryMemory& lhs, const InventoryMemory& rhs)->bool
+				{ return lhs.ItemInfo.Value < rhs.ItemInfo.Value; });
+
+		minItem->ItemInfo = item;
+		return minItem->invIndex;
+	}
 }
 
 bool Brain::CheckIfTargetIsInside(const HouseInfo& targetHouse, Elite::Vector2 playerPos)

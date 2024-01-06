@@ -180,6 +180,28 @@ namespace BT_Actions
 		return BT::State::Failure;
 	}
 
+	BT::State SwapItem(Blackboard* pBlackboard)
+	{
+		IExamInterface* pInterface{};
+		Brain* pBrain{};
+		ItemInfo targetItem{};
+
+		pBlackboard->GetData("Interface", pInterface);
+		pBlackboard->GetData("Brain", pBrain);
+		pBlackboard->GetData("TargetItem", targetItem);
+
+		if (pInterface->GrabItem(targetItem))
+		{
+			const int slot = pBrain->FindEmptyValue(targetItem);
+			pInterface->Inventory_RemoveItem(slot);
+			pInterface->Inventory_AddItem(slot, targetItem);
+
+			return BT::State::Success;
+		}
+
+		return BT::State::Failure;
+	}
+
 	BT::State CheckItem(Blackboard* pBlackboard)
 	{
 		IExamInterface* pInterface{};
@@ -210,14 +232,39 @@ namespace BT_Actions
 		}
 		else
 		{
-			pInterface->Inventory_UseItem(slotIndex);
-			pInterface->Inventory_RemoveItem(slotIndex);
+			if (!(targetItem.Type == eItemType::SHOTGUN || targetItem.Type == eItemType::PISTOL))
+			{
+				pInterface->Inventory_UseItem(slotIndex);
+			}
 
 			if (pInterface->GrabItem(targetItem))
 			{
+				pInterface->Inventory_RemoveItem(slotIndex);
 				pInterface->Inventory_AddItem(slotIndex, targetItem);
 				return BT::State::Success;
 			}
+		}
+
+		return BT::State::Failure;
+	}
+
+	BT::State UseItem(Blackboard* pBlackboard, eItemType type)
+	{
+		IExamInterface* pInterface{};
+		Brain* pBrain{};
+
+		pBlackboard->GetData("Interface", pInterface);
+		pBlackboard->GetData("Brain", pBrain);
+
+		const auto item = pBrain->FindLeastValueItem(type);
+
+		if (item->ItemInfo.Value <= 0)
+			return BT::State::Failure;
+
+		if (pInterface->Inventory_UseItem(item->invIndex))
+		{
+			item->ItemInfo.Value = 0;
+			return BT::State::Success;
 		}
 
 		return BT::State::Failure;
@@ -329,8 +376,6 @@ namespace BT_Actions
 
 	BT::State GetInsideTarget(Blackboard* pBlackboard, float offset)
 	{
-		std::cout << "inside\n";
-
 		HouseInfo targetHouse{};
 		pBlackboard->GetData("TargetHouse", targetHouse);
 
@@ -386,25 +431,53 @@ namespace BT_Conditions
 		return pInterface->GetItemsInFOV().capacity() > 0;
 	}
 
-	bool IsTypeOfItem(Blackboard* pBlackboard, eItemType typoToCheck)
+	bool IsTypeOfItem(Blackboard* pBlackboard, eItemType type)
 	{
 		ItemInfo targetItem{};
 		pBlackboard->GetData("TargetItem", targetItem);
 
-		return targetItem.Type == typoToCheck;
+		return targetItem.Type == type;
 	}
 
 	bool InvIsFull(Blackboard* pBlackboard)
 	{
-		Brain* pBrain{};
-		pBlackboard->GetData("Brain", pBrain);
-
-		return pBrain->IsInvFull();
+		return !InvIsNotFull(pBlackboard);
 	}
 
 	bool InvIsNotFull(Blackboard* pBlackboard)
 	{
-		return !InvIsFull(pBlackboard);
+		Brain* pBrain{};
+		pBlackboard->GetData("Brain", pBrain);
+		return pBrain->IsInvNotFull();
+	}
+
+	bool EmptyValue(Blackboard* pBlackboard)
+	{
+		Brain* pBrain{};
+		pBlackboard->GetData("Brain", pBrain);
+
+		if (pBrain->EmptyValue())
+		{
+			std::cout << "empty item\n";
+		}
+
+		return pBrain->EmptyValue();
+	}
+
+	bool ItemInInv(Blackboard* pBlackboard, eItemType type)
+	{
+		Brain* pBrain{};
+		pBlackboard->GetData("Brain", pBrain);
+
+		return pBrain->IsItemInInv(type);
+	}
+
+	bool HpUnderThreshold(Blackboard* pBlackboard, float threshold)
+	{
+		IExamInterface* pInterface{};
+		pBlackboard->GetData("Interface", pInterface);
+
+		return pInterface->Agent_GetInfo().Health <= threshold;
 	}
 
 	bool InsideTargetHouse(Blackboard* pBlackboard)

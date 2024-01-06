@@ -8,6 +8,7 @@ namespace BT
 
 namespace Branch
 {
+	BT::Selector* ItemHandling();
 	BT::PartialSequence* PickUpHandling();
 	BT::Selector* HouseHandling();
 }

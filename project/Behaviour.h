@@ -24,7 +24,9 @@ namespace BT_Actions
 	BT::State SetItemAsTarget(Blackboard* pBlackboard);
 	BT::State DestroyItemOnFloor(Blackboard* pBlackboard);
 	BT::State PickUpItem(Blackboard* pBlackboard);
+	BT::State SwapItem(Blackboard* pBlackboard);
 	BT::State CheckItem(Blackboard* pBlackboard);
+	BT::State UseItem(Blackboard* pBlackboard, eItemType type);
 
 	BT::State TryFindHouse(Blackboard* pBlackboard, float searchRadius, int degree);
 	BT::State GetHouseAsTarget(Blackboard* pBlackboard, float maxTravelDistance);
@@ -38,9 +40,12 @@ namespace BT_Conditions
 	bool CheckTimer(Blackboard* pBlackboard, const std::string& timerName, bool doOnce);
 
 	bool SeeItem(Blackboard* pBlackboard);
-	bool IsTypeOfItem(Blackboard* pBlackboard, eItemType typoToCheck);
+	bool IsTypeOfItem(Blackboard* pBlackboard, eItemType type);
 	bool InvIsFull(Blackboard* pBlackboard);
 	bool InvIsNotFull(Blackboard* pBlackboard);
+	bool EmptyValue(Blackboard* pBlackboard);
+	bool ItemInInv(Blackboard* pBlackboard, eItemType type);
+	bool HpUnderThreshold(Blackboard* pBlackboard, float threshold);
 
 	bool InsideTargetHouse(Blackboard* pBlackboard);
 	bool NewHouse(Blackboard* pBlackboard);

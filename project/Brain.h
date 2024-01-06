@@ -4,6 +4,20 @@
 
 class Brain final
 {
+private:
+	struct HouseMemory
+	{
+		bool newHouse{ true };
+		HouseInfo houseInfo;
+		std::chrono::steady_clock::time_point waitTimer;
+	};
+
+	struct InventoryMemory
+	{
+		ItemInfo ItemInfo;
+		int invIndex;
+	};
+
 public:
 	Brain() = default;
 
@@ -13,7 +27,11 @@ public:
 	Brain(Brain&&) = default;
 	Brain& operator=(Brain&&) = default;
 
-	bool IsInvFull() const;
+	std::vector<InventoryMemory>::iterator FindLeastValueItem(const eItemType& itemType);
+	bool IsInvNotFull() const;
+	bool IsItemInInv(const eItemType& itemType);
+	bool EmptyValue();
+	int FindEmptyValue(const ItemInfo& item);
 	int AddItemToMemory(const ItemInfo& item);
 	int CheckItem(const ItemInfo& item);
 
@@ -26,30 +44,11 @@ public:
 	bool CheckHousesForMemory(const std::vector<HouseInfo>& FOVHouses);
 
 private:
-	struct HouseMemory
-	{
-		bool newHouse{ true };
-		HouseInfo houseInfo;
-		std::chrono::steady_clock::time_point waitTimer;
-	};
-
-	struct InventoryMemory
-	{
-		ItemInfo ItemInfo;
-		int ItemIndex;
-	};
-
 	std::vector<HouseMemory> m_HousesMemory{};
 	const float m_MaxWaitTimer{ 360.f };
 
 	std::vector<InventoryMemory> m_InventoryMemory{};
-	int m_CountFood{};
-	int m_CountMedkit{};
-	int m_CountShotgun{};
-	int m_CountPistol{};
-	const size_t m_MaxInventorySlots{ 4 };
+	const size_t m_MaxInventorySlots{ 5 };
 
-	int CheckAmountOfType(eItemType type);
-	std::vector<InventoryMemory>::iterator CheckValueOfItem(const ItemInfo& item);
 	std::vector<HouseMemory>::iterator FindHouseInMemory(const HouseInfo& targetHouse);
 };

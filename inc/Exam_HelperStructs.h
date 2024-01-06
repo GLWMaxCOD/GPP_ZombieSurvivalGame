@@ -64,10 +64,10 @@ enum class eEntityType
 
 enum class eItemType
 {
-	PISTOL,
-	SHOTGUN,
-	MEDKIT,
-	FOOD,
+	PISTOL = 0,
+	SHOTGUN = 1,
+	MEDKIT = 2,
+	FOOD = 3,
 	GARBAGE,
 	RANDOM_DROP, //Internal Only
 	RANDOM_DROP_WITH_CHANCE, //Internal Only

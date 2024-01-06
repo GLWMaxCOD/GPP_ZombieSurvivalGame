@@ -6,18 +6,43 @@
 
 namespace Branch
 {
+	constexpr float HpThreshold{ 8.f };
+
+	BT::Selector* ItemHandling()
+	{
+		return
+			new BT::Selector({
+				new BT::Sequence({
+					new BT::Conditional(std::bind(BT_Conditions::ItemInInv, std::placeholders::_1, eItemType::MEDKIT)),
+					new BT::Conditional(std::bind(BT_Conditions::HpUnderThreshold, std::placeholders::_1, HpThreshold)),
+					new BT::Action(std::bind(BT_Actions::UseItem, std::placeholders::_1, eItemType::MEDKIT))
+				}),
+				//new BT::Sequence({
+				//
+				//})
+			});
+	}
+
 	BT::PartialSequence* PickUpHandling()
 	{
 		return
 			new BT::PartialSequence({
 				new BT::Conditional(BT_Conditions::SeeItem),
-				new BT::Action(BT_Actions::SetItemAsTarget),
 				new BT::Action(BT_Actions::DisableSpin),
+				new BT::Action(BT_Actions::SetItemAsTarget),
 				new BT::Action(BT_Actions::GoToDestination),
 				new BT::Selector({
 					new BT::Sequence({
 						new BT::Conditional(std::bind(BT_Conditions::IsTypeOfItem, std::placeholders::_1, eItemType::GARBAGE)),
 						new BT::Action(BT_Actions::DestroyItemOnFloor)
+					}),
+					new BT::Sequence({
+						new BT::Conditional(BT_Conditions::EmptyValue),
+						new BT::Action(BT_Actions::SwapItem)
+					}),
+					new BT::Sequence({
+						new BT::Conditional(BT_Conditions::InvIsNotFull),
+						new BT::Action(BT_Actions::PickUpItem)
 					}),
 					new BT::Sequence({
 						new BT::Conditional(BT_Conditions::InvIsFull),
@@ -37,12 +62,8 @@ namespace Branch
 							new BT::Sequence({
 								new BT::Conditional(std::bind(BT_Conditions::IsTypeOfItem, std::placeholders::_1, eItemType::PISTOL)),
 								new BT::Action(BT_Actions::CheckItem)
-							}),
+							})
 						})
-					}),
-					new BT::Sequence({
-						new BT::Conditional(BT_Conditions::InvIsNotFull),
-						new BT::Action(BT_Actions::PickUpItem)
 					})
 				})
 			});
