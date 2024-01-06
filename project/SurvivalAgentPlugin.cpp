@@ -2,7 +2,7 @@
 #include "SurvivalAgentPlugin.h"
 #include "BehaviourTree.h"
 #include "IExamInterface.h"
-#include "BlackBoard.h"
+#include "Blackboard.h"
 #include "Brain.h"
 #include "Branches.h"
 
@@ -49,7 +49,7 @@ Blackboard* SurvivalAgentPlugin::CreateBlackboard() const
 	pBlackboard->AddData("Target", m_Target);
 	pBlackboard->AddData("Spin", false);
 	pBlackboard->AddData("FailSafe", std::chrono::steady_clock::time_point{});
-	pBlackboard->AddData("MaxFailSafe", 7.f);
+	pBlackboard->AddData("MaxFailSafe", 2.f);
 	pBlackboard->AddData("FailSafeDoOnce", false);
 
 	pBlackboard->AddData("TargetItem", ItemInfo{});

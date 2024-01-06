@@ -14,10 +14,10 @@ public:
 	Brain& operator=(Brain&&) = default;
 
 	bool IsInvFull() const;
-	int AddItemToMemory(const ItemInfo& newItem);
-	int CheckItem(const ItemInfo& newItem, int maxItems);
-	bool CheckIfTargetIsInside(const HouseInfo& targetHouse, Elite::Vector2 playerPos);
+	int AddItemToMemory(const ItemInfo& item);
+	int CheckItem(const ItemInfo& item);
 
+	bool CheckIfTargetIsInside(const HouseInfo& targetHouse, Elite::Vector2 playerPos);
 	bool CheckIfTargetIsExplored(Elite::Vector2 target, float offset) const;
 	bool NewHouseToExplore();
 	bool HouseToReExplore();
@@ -43,7 +43,11 @@ private:
 	const float m_MaxWaitTimer{ 360.f };
 
 	std::vector<InventoryMemory> m_InventoryMemory{};
-	const size_t m_MaxInvSize{ 5 };
+	int m_CountFood{};
+	int m_CountMedkit{};
+	int m_CountShotgun{};
+	int m_CountPistol{};
+	const size_t m_MaxInventorySlots{ 4 };
 
 	int CheckAmountOfType(eItemType type);
 	std::vector<InventoryMemory>::iterator CheckValueOfItem(const ItemInfo& item);

@@ -24,9 +24,9 @@ namespace BT_Actions
 	BT::State SetItemAsTarget(Blackboard* pBlackboard);
 	BT::State DestroyItemOnFloor(Blackboard* pBlackboard);
 	BT::State PickUpItem(Blackboard* pBlackboard);
-	BT::State CheckItem(Blackboard* pBlackboard, int maxItems);
+	BT::State CheckItem(Blackboard* pBlackboard);
 
-	BT::State TryFindHouse(Blackboard* pBlackboard, float searchRadius);
+	BT::State TryFindHouse(Blackboard* pBlackboard, float searchRadius, int degree);
 	BT::State GetHouseAsTarget(Blackboard* pBlackboard, float maxTravelDistance);
 	BT::State CheckHouses(Blackboard* pBlackboard);
 	BT::State GetInsideTarget(Blackboard* pBlackboard, float offset);

@@ -21,19 +21,22 @@ namespace Branch
 					}),
 					new BT::Sequence({
 						new BT::Conditional(BT_Conditions::InvIsFull),
-						new BT::Action(BT_Actions::DestroyItemOnFloor),
 						new BT::Selector({
 							new BT::Sequence({
 								new BT::Conditional(std::bind(BT_Conditions::IsTypeOfItem, std::placeholders::_1, eItemType::FOOD)),
+								new BT::Action(BT_Actions::CheckItem)
 							}),
 							new BT::Sequence({
 								new BT::Conditional(std::bind(BT_Conditions::IsTypeOfItem, std::placeholders::_1, eItemType::MEDKIT)),
+								new BT::Action(BT_Actions::CheckItem)
 							}),
 							new BT::Sequence({
 								new BT::Conditional(std::bind(BT_Conditions::IsTypeOfItem, std::placeholders::_1, eItemType::SHOTGUN)),
+								new BT::Action(BT_Actions::CheckItem)
 							}),
 							new BT::Sequence({
 								new BT::Conditional(std::bind(BT_Conditions::IsTypeOfItem, std::placeholders::_1, eItemType::PISTOL)),
+								new BT::Action(BT_Actions::CheckItem)
 							}),
 						})
 					}),
@@ -49,7 +52,7 @@ namespace Branch
 	{
 		constexpr float maxTravelDistance{ 100.f };
 		constexpr int searchRadius{ 300 };
-		constexpr int searchDegree{ 45 };
+		constexpr int searchDegree{ 45 }; //TODO
 		constexpr float InsideOffset{ 5.f };
 
 		const std::string BeforeLeavingTimer{ "BeforeLeaving" };
@@ -78,7 +81,7 @@ namespace Branch
 									new BT::Action(BT_Actions::GoToDestination),
 								}),
 								new BT::PartialSequence({
-									new BT::Action(std::bind(BT_Actions::TryFindHouse, std::placeholders::_1, searchRadius)),
+									new BT::Action(std::bind(BT_Actions::TryFindHouse, std::placeholders::_1, searchRadius, searchDegree)),
 									new BT::Action(BT_Actions::EnableSpin),
 									new BT::Action(BT_Actions::GoToDestination)
 								})
@@ -110,10 +113,10 @@ namespace Branch
 					})
 				}),
 				new BT::PartialSequence({
-					new BT::Action(std::bind(BT_Actions::TryFindHouse, std::placeholders::_1, searchRadius)),
+					new BT::Action(std::bind(BT_Actions::TryFindHouse, std::placeholders::_1, searchRadius, searchDegree)),
 					new BT::Action(BT_Actions::EnableSpin),
 					new BT::Action(BT_Actions::GoToDestination)
 				})
-			});
+				});
 	}
 }

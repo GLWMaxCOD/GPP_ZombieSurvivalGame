@@ -61,8 +61,6 @@ namespace BT_Actions
 		pBlackboard->GetData("Target", target);
 		pBlackboard->GetData("Steering", steering);
 
-		//std::cout << "target received " << target << "\n";
-
 		pBlackboard->GetData("FailSafe", timer);
 		pBlackboard->GetData("MaxFailSafe", maxTime);
 		pBlackboard->GetData("FailSafeDoOnce", doOnce);
@@ -154,8 +152,6 @@ namespace BT_Actions
 		pBlackboard->GetData("Interface", pInterface);
 		pBlackboard->GetData("TargetItem", targetItem);
 
-		pInterface->DestroyItem(targetItem);
-
 		if (pInterface->DestroyItem(targetItem))
 			return BT::State::Success;
 
@@ -184,7 +180,7 @@ namespace BT_Actions
 		return BT::State::Failure;
 	}
 
-	BT::State CheckItem(Blackboard* pBlackboard, int maxItems)
+	BT::State CheckItem(Blackboard* pBlackboard)
 	{
 		IExamInterface* pInterface{};
 		Brain* pBrain{};
@@ -194,21 +190,40 @@ namespace BT_Actions
 		pBlackboard->GetData("Brain", pBrain);
 		pBlackboard->GetData("TargetItem", targetItem);
 
-		const int slotIndex{ pBrain->CheckItem(targetItem, maxItems) };
+		const int slotIndex{ pBrain->CheckItem(targetItem) };
 
-		if (slotIndex >= INT_MAX)
+		if (slotIndex == pInterface->Inventory_GetCapacity() - 1)
 		{
-			return BT::State::Failure;
+			if (targetItem.Type == eItemType::SHOTGUN || targetItem.Type == eItemType::PISTOL)
+			{
+				pInterface->DestroyItem(targetItem);
+				return BT::State::Success;
+			}
+
+			if (pInterface->GrabItem(targetItem))
+			{
+				pInterface->Inventory_AddItem(slotIndex, targetItem);
+				pInterface->Inventory_UseItem(slotIndex);
+				pInterface->Inventory_RemoveItem(slotIndex);
+				return BT::State::Success;
+			}
+		}
+		else
+		{
+			pInterface->Inventory_UseItem(slotIndex);
+			pInterface->Inventory_RemoveItem(slotIndex);
+
+			if (pInterface->GrabItem(targetItem))
+			{
+				pInterface->Inventory_AddItem(slotIndex, targetItem);
+				return BT::State::Success;
+			}
 		}
 
-		pInterface->Inventory_RemoveItem(slotIndex);
-		pInterface->GrabItem(targetItem);
-		pInterface->Inventory_AddItem(slotIndex, targetItem);
-
-		return BT::State::Success;
+		return BT::State::Failure;
 	}
 
-	BT::State TryFindHouse(Blackboard* pBlackboard, float searchRadius)
+	BT::State TryFindHouse(Blackboard* pBlackboard, float searchRadius, int degree)
 	{
 		IExamInterface* pInterface{};
 		Brain* pBrain{};
@@ -216,14 +231,23 @@ namespace BT_Actions
 		pBlackboard->GetData("Interface", pInterface);
 		pBlackboard->GetData("Brain", pBrain);
 
+		pBlackboard->ChangeData("TargetHouse", HouseInfo{});
+
 		const Elite::Vector2 playerPos{ pInterface->Agent_GetInfo().Position };
 
 		float closestTarget{ FLT_MAX };
 		Elite::Vector2 finalTarget{};
 
-		for (int i = 0; i <= 360; i += 1)
+		constexpr int circleDegrees{ 360 };
+
+		if (degree > circleDegrees)
 		{
-			const Elite::Vector2 pointOnCircle{ searchRadius * std::cosf(TO_RAD(i)), searchRadius * std::sinf(TO_RAD(i)) };
+			degree = circleDegrees;
+		}
+
+		for (int i = 0; i <= circleDegrees; i += degree)
+		{
+			const Elite::Vector2 pointOnCircle{ playerPos.x + searchRadius * std::cosf(TO_RAD(i)), playerPos.y + searchRadius * std::sinf(TO_RAD(i)) };
 			const Elite::Vector2 target = pInterface->NavMesh_GetClosestPathPoint(pointOnCircle);
 
 			if (pointOnCircle != target)
@@ -244,7 +268,8 @@ namespace BT_Actions
 
 		if (finalTarget == Elite::Vector2{})
 		{
-			std::cout << "-_-\n";
+			finalTarget = Elite::Vector2(randNumRange(-searchRadius, searchRadius),
+										 randNumRange(-searchRadius, searchRadius));
 		}
 
 		pBlackboard->ChangeData("Target", finalTarget);
@@ -267,6 +292,7 @@ namespace BT_Actions
 			return BT::State::Failure;
 		}
 
+		pBlackboard->ChangeData("Target", targetHouse.Center);
 		pBlackboard->ChangeData("TargetHouse", targetHouse);
 
 		return BT::State::Success;
@@ -343,8 +369,6 @@ namespace BT_Conditions
 
 		if (elapsedSec.count() > maxTime)
 		{
-			std::cout << "timer Reached\n";
-
 			if (doOnce)
 				pBlackboard->ChangeData("Timer" + timerName + "DoOnce", false);
 

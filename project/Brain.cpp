@@ -4,89 +4,46 @@
 
 bool Brain::IsInvFull() const
 {
-	bool a = m_InventoryMemory.capacity() > m_MaxInvSize;
-	std::cout << m_InventoryMemory.capacity() << " > " << m_MaxInvSize << " = " << a << std::endl;
-	return m_InventoryMemory.capacity() > m_MaxInvSize;
+	return m_InventoryMemory.capacity() > m_MaxInventorySlots - 1;
 }
 
-int Brain::AddItemToMemory(const ItemInfo& newItem)
+int Brain::AddItemToMemory(const ItemInfo& item)
 {
-	assert(m_InventoryMemory.capacity() < m_MaxInvSize);
+	assert(m_InventoryMemory.capacity() < m_MaxInventorySlots);
 
-	const InventoryMemory itemToMemory{ newItem, static_cast<int>(m_InventoryMemory.capacity()) };
+	const InventoryMemory itemToMemory{ item, static_cast<int>(m_InventoryMemory.capacity()) };
 
 	m_InventoryMemory.push_back(itemToMemory);
 
 	return static_cast<int>(m_InventoryMemory.capacity());
 }
 
-int Brain::CheckAmountOfType(eItemType type)
+int Brain::CheckItem(const ItemInfo& item)
 {
-	return std::count_if(std::begin(m_InventoryMemory), std::end(m_InventoryMemory),
-		[type](const InventoryMemory& memory)->bool { return memory.ItemInfo.Type == type; });
-}
+	if (std::any_of(std::begin(m_InventoryMemory), std::end(m_InventoryMemory),
+		[item](const InventoryMemory& memory)->bool { return memory.ItemInfo.Type == item.Type; }))
+	{
+		std::partition(std::begin(m_InventoryMemory), std::end(m_InventoryMemory),
+			[item](const InventoryMemory& memory)->bool { return memory.ItemInfo.Type == item.Type; });
 
-//std::vector<Brain::InventoryMemory>::iterator Brain::CheckValueOfItem(const ItemInfo& item)
-//{
-//	return std::min_element(std::begin(m_InventoryMemory), std::end(m_InventoryMemory),
-//		[](const InventoryMemory& lhs, const InventoryMemory& rhs)
-//		{
-//			return lhs.ItemInfo.Value < rhs.ItemInfo.Value;
-//		});
-//}
-
-int Brain::CheckItem(const ItemInfo& newItem, int maxItems)
-{
-	const int pistolCount = CheckAmountOfType(eItemType::PISTOL);
-	const int shotgun = CheckAmountOfType(eItemType::SHOTGUN);
-	const int medkitCount = CheckAmountOfType(eItemType::MEDKIT);
-	const int foodCount = CheckAmountOfType(eItemType::FOOD);
-
-	switch (newItem.Type) {
-		case eItemType::PISTOL:
-		{
-			if (pistolCount > 0)
+		auto minItem = std::min_element(std::begin(m_InventoryMemory), std::end(m_InventoryMemory),
+			[item](const InventoryMemory& lhs, const InventoryMemory& rhs)->bool
 			{
-
-			}
-
-			break;
-		}
-		case eItemType::SHOTGUN:
+				if (lhs.ItemInfo.Type == item.Type && rhs.ItemInfo.Type == item.Type)
+				{
+					return lhs.ItemInfo.Value < rhs.ItemInfo.Value;
+				}
+				return false;
+			});
+		if (minItem->ItemInfo.Value <= item.Value)
 		{
-			break;
+			return minItem->ItemIndex;
 		}
-		case eItemType::MEDKIT:
+		else
 		{
-			break;
-		}
-		case eItemType::FOOD:
-		{
-			break;
-		}
-		default:
-		{
-			break;
+			return 4;
 		}
 	}
-
-	if (pistolCount >= 1)
-	{
-
-	}
-	else if (shotgun >= 1)
-	{
-
-	}
-	else if (medkitCount >= 1)
-	{
-
-	}
-	else if (foodCount >= 2)
-	{
-
-	}
-
 	return INT_MAX;
 }
 
@@ -107,7 +64,7 @@ bool Brain::CheckIfTargetIsInside(const HouseInfo& targetHouse, Elite::Vector2 p
 
 bool Brain::CheckIfTargetIsExplored(Elite::Vector2 target, float offset) const
 {
-	return std::any_of(std::begin(m_HousesMemory), std::end(m_HousesMemory),
+	return std::ranges::any_of(m_HousesMemory,
 		[target, offset](const HouseMemory& house)->bool
 		{
 			const Elite::Vector2 houseCenter{ house.houseInfo.Center };
@@ -126,11 +83,9 @@ bool Brain::CheckIfTargetIsExplored(Elite::Vector2 target, float offset) const
 
 bool Brain::NewHouseToExplore()
 {
-	// Check if there are houses in memory
 	if (m_HousesMemory.capacity() != 0)
 	{
-		// Check if there is any new house in the memory
-		if (std::any_of(std::begin(m_HousesMemory), std::end(m_HousesMemory),
+		if (std::ranges::any_of(m_HousesMemory,
 			[](const HouseMemory& houseMemory)->bool
 			{ return houseMemory.newHouse == true; }))
 		{
@@ -144,11 +99,9 @@ bool Brain::HouseToReExplore()
 {
 	if (m_HousesMemory.capacity() != 0)
 	{
-		// Get the current time
 		const std::chrono::steady_clock::time_point currentTime{ std::chrono::steady_clock::now() };
 
-		// Check if there are houses with elapsed exploration time exceeding the threshold
-		if (std::any_of(std::begin(m_HousesMemory), std::end(m_HousesMemory),
+		if (std::ranges::any_of(m_HousesMemory,
 			[=](const HouseMemory& houseMemory)->bool
 			{
 				const std::chrono::duration<float> elapsedSec{ currentTime - houseMemory.waitTimer };
@@ -178,7 +131,7 @@ HouseInfo Brain::CheckHouseValidTarget(Elite::Vector2 playerPos, float maxRadius
 {
 	// Initialize target house and distance
 	HouseInfo targetHouse{};
-	float targetDistance{};
+	float closestHouse{ FLT_MAX };
 
 	// Iterate through houses in memory
 	for (auto house : m_HousesMemory)
@@ -191,14 +144,14 @@ HouseInfo Brain::CheckHouseValidTarget(Elite::Vector2 playerPos, float maxRadius
 			continue;
 
 		// Skip houses that are not new and are farther than the current target
-		if (targetDistance > houseDistance)
+		if (closestHouse < houseDistance)
 			continue;
 		
 		// Update target house if current house is closer or not new but can be re-explored
 		if (house.newHouse == true)
 		{
 			targetHouse = house.houseInfo;
-			targetDistance = houseDistance;
+			closestHouse = houseDistance;
 		}
 		else
 		{
@@ -209,7 +162,7 @@ HouseInfo Brain::CheckHouseValidTarget(Elite::Vector2 playerPos, float maxRadius
 				continue;
 
 			targetHouse = house.houseInfo;
-			targetDistance = houseDistance;
+			closestHouse = houseDistance;
 		}
 	}
 	return targetHouse;
@@ -227,7 +180,7 @@ bool Brain::CheckHousesForMemory(const std::vector<HouseInfo>& FOVHouses)
 		if (m_HousesMemory.capacity() != 0)
 		{
 			// Skip houses already in memory
-			if (std::any_of(std::begin(m_HousesMemory), std::end(m_HousesMemory),
+			if (std::ranges::any_of(m_HousesMemory,
 				[newHouse](const HouseMemory& houseMemory)->bool
 				{ return houseMemory.houseInfo == newHouse; }))
 			{
@@ -251,7 +204,7 @@ bool Brain::CheckHousesForMemory(const std::vector<HouseInfo>& FOVHouses)
 std::vector<Brain::HouseMemory>::iterator Brain::FindHouseInMemory(const HouseInfo& targetHouse)
 {
 	return
-		std::find_if(std::begin(m_HousesMemory), std::end(m_HousesMemory),
+		std::ranges::find_if(m_HousesMemory,
 			[targetHouse](const HouseMemory& houseMemory)->bool
 			{ return houseMemory.houseInfo == targetHouse; });
 }
