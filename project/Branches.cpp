@@ -8,59 +8,6 @@ using namespace std::placeholders;
 
 namespace Branch
 {
-	BT::Sequence* PurgeZoneHandling()
-	{
-		constexpr int searchDegree{ 5 };
-		return
-			new BT::Sequence({
-					new BT::Conditional(BT_Conditions::SeePurgeZone),
-					new BT::Action(std::bind(BT_Actions::FindClosestEdge, _1, searchDegree)),
-					new BT::Action(BT_Actions::GoToDestination)
-			});
-	}
-
-	BT::Sequence* ZombieHandling()
-	{
-		constexpr float minShotgunAngleDiff{ .2f };
-		constexpr float minPistolAngleDiff{ .1f };
-		constexpr float maxShootRange{ 15.f };
-
-		const std::string ShotgunTimer{ "Shotgun" };
-		constexpr bool ShotgunDoOnce{ true };
-
-		const std::string PistolTimer{ "Pistol" };
-		constexpr bool PistolDoOnce{ true };
-
-		return
-			new BT::Sequence({
-				new BT::Conditional(BT_Conditions::SeeZombie),
-				new BT::Sequence({
-					new BT::Action(BT_Actions::AvoidingZombie),
-					new BT::Conditional(BT_Conditions::HasWeapon),
-					new BT::Action(BT_Actions::SetZombieTarget),
-					new BT::Sequence({
-						new BT::Conditional(std::bind(BT_Conditions::InRange, _1, maxShootRange)),
-						new BT::Action(BT_Actions::RotateToZombie),
-						new BT::Selector({
-							new BT::Sequence({
-								new BT::Conditional(std::bind(BT_Conditions::ItemInInv, _1, eItemType::SHOTGUN)),
-								new BT::Action(std::bind(BT_Actions::ReadyToShoot, _1, minShotgunAngleDiff)),
-								new BT::Conditional(std::bind(BT_Conditions::CheckTimer, _1, ShotgunTimer, ShotgunDoOnce)),
-								new BT::Action(std::bind(BT_Actions::Shoot, _1, eItemType::SHOTGUN)),
-								new BT::Action(std::bind(BT_Actions::SetTimer, _1, ShotgunTimer, ShotgunDoOnce))
-							}),
-							new BT::Sequence({
-								new BT::Action(std::bind(BT_Actions::ReadyToShoot, _1, minPistolAngleDiff)),
-								new BT::Conditional(std::bind(BT_Conditions::CheckTimer, _1, PistolTimer, PistolDoOnce)),
-								new BT::Action(std::bind(BT_Actions::Shoot, _1, eItemType::PISTOL)),
-								new BT::Action(std::bind(BT_Actions::SetTimer, _1, PistolTimer, PistolDoOnce))
-							})
-						})
-					})
-				})
-			});
-	}
-
 	BT::Selector* ItemHandling()
 	{
 		constexpr float HpThreshold{ 0.f };
@@ -77,6 +24,62 @@ namespace Branch
 					new BT::Conditional(BT_Conditions::CheckMinNeededEnergy),
 					new BT::Action(std::bind(BT_Actions::UseItem, _1, eItemType::FOOD))
 				})
+			});
+	}
+
+	BT::Sequence* ZombieHandling()
+	{
+		constexpr float minShotgunAngleDiff{ .2f };
+		constexpr float minPistolAngleDiff{ .1f };
+		constexpr float maxShotgunShootRange{ 7.5f };
+		constexpr float maxPistolShootRange{ 15.f };
+
+		const std::string ShotgunTimer{ "Shotgun" };
+		constexpr bool ShotgunDoOnce{ true };
+
+		const std::string PistolTimer{ "Pistol" };
+		constexpr bool PistolDoOnce{ true };
+
+		return
+			new BT::Sequence({
+				new BT::Conditional(BT_Conditions::SeeZombie),
+				new BT::Sequence({
+					new BT::Action(BT_Actions::AvoidingZombie),
+					new BT::Conditional(BT_Conditions::HasWeapon),
+					new BT::Action(BT_Actions::SetZombieTarget),
+					new BT::Sequence({
+						new BT::Action(BT_Actions::RotateToZombie),
+						new BT::Selector({
+							new BT::Sequence({
+								new BT::Conditional(std::bind(BT_Conditions::ItemInInv, _1, eItemType::SHOTGUN)),
+								new BT::Conditional(std::bind(BT_Conditions::InRange, _1, maxShotgunShootRange)),
+								new BT::Action(std::bind(BT_Actions::ReadyToShoot, _1, minShotgunAngleDiff)),
+								new BT::Conditional(std::bind(BT_Conditions::CheckTimer, _1, ShotgunTimer, ShotgunDoOnce)),
+								new BT::Action(std::bind(BT_Actions::Shoot, _1, eItemType::SHOTGUN)),
+								new BT::Action(std::bind(BT_Actions::SetTimer, _1, ShotgunTimer, ShotgunDoOnce))
+							}),
+							new BT::Sequence({
+								new BT::Conditional(std::bind(BT_Conditions::ItemInInv, _1, eItemType::PISTOL)),
+								new BT::Conditional(std::bind(BT_Conditions::InRange, _1, maxPistolShootRange)),
+								new BT::Action(std::bind(BT_Actions::ReadyToShoot, _1, minPistolAngleDiff)),
+								new BT::Conditional(std::bind(BT_Conditions::CheckTimer, _1, PistolTimer, PistolDoOnce)),
+								new BT::Action(std::bind(BT_Actions::Shoot, _1, eItemType::PISTOL)),
+								new BT::Action(std::bind(BT_Actions::SetTimer, _1, PistolTimer, PistolDoOnce))
+							})
+						})
+					})
+				})
+			});
+	}
+
+	BT::Sequence* PurgeZoneHandling()
+	{
+		constexpr int searchDegree{ 5 };
+		return
+			new BT::Sequence({
+					new BT::Conditional(BT_Conditions::InPurgeZone),
+					new BT::Action(std::bind(BT_Actions::FindClosestEdge, _1, searchDegree)),
+					new BT::Action(BT_Actions::GoToDestination)
 			});
 	}
 
@@ -128,8 +131,9 @@ namespace Branch
 
 	BT::Selector* HouseHandling()
 	{
-		constexpr float maxTravelDistance{ 250.f };
-		constexpr int searchRadius{ 300 };
+		constexpr float maxTravelDistance{ 400.f };
+		constexpr int searchRadius{ 500 };
+		constexpr int randomRadius{ 50 };
 		constexpr int searchDegree{ 5 };
 		constexpr float InsideOffset{ 5.f };
 
@@ -138,6 +142,10 @@ namespace Branch
 
 		return
 			new BT::Selector({
+				new BT::Sequence({
+					new BT::Conditional(BT_Conditions::SeeHouse),
+					new BT::Action(BT_Actions::CheckHouses)
+				}),
 				new BT::PartialSequence({
 					new BT::Conditional(BT_Conditions::InsideTargetHouse),
 					new BT::Action(BT_Actions::SetExpireDate),
@@ -153,13 +161,18 @@ namespace Branch
 									new BT::Action(BT_Actions::GoToDestination),
 								}),
 								new BT::PartialSequence({
+									new BT::Action(std::bind(BT_Actions::TryFindHouse, _1, searchRadius, searchDegree)),
+									new BT::Action(BT_Actions::EnableSpin),
+									new BT::Action(BT_Actions::GoToDestination)
+								}),
+								new BT::PartialSequence({
 									new BT::Conditional(BT_Conditions::ReExploreHouse),
 									new BT::Action(std::bind(BT_Actions::GetHouseAsTarget, _1, maxTravelDistance)),
 									new BT::Action(BT_Actions::EnableSpin),
 									new BT::Action(BT_Actions::GoToDestination),
 								}),
 								new BT::PartialSequence({
-									new BT::Action(std::bind(BT_Actions::TryFindHouse, _1, searchRadius, searchDegree)),
+									new BT::Action(std::bind(BT_Actions::FindRandomLocation, _1, randomRadius)),
 									new BT::Action(BT_Actions::EnableSpin),
 									new BT::Action(BT_Actions::GoToDestination)
 								})
@@ -172,16 +185,17 @@ namespace Branch
 						}),
 					})
 				}),
-				new BT::Sequence({
-					new BT::Conditional(BT_Conditions::SeeHouse),
-					new BT::Action(BT_Actions::CheckHouses)
-				}),
 				new BT::Selector({
 					new BT::PartialSequence({
 						new BT::Conditional(BT_Conditions::NewHouse),
 						new BT::Action(std::bind(BT_Actions::GetHouseAsTarget, _1, maxTravelDistance)),
 						new BT::Action(BT_Actions::EnableSpin),
 						new BT::Action(BT_Actions::GoToDestination),
+					}),
+					new BT::PartialSequence({
+						new BT::Action(std::bind(BT_Actions::TryFindHouse, _1, searchRadius, searchDegree)),
+						new BT::Action(BT_Actions::EnableSpin),
+						new BT::Action(BT_Actions::GoToDestination)
 					}),
 					new BT::PartialSequence({
 						new BT::Conditional(BT_Conditions::ReExploreHouse),
@@ -191,7 +205,7 @@ namespace Branch
 					})
 				}),
 				new BT::PartialSequence({
-					new BT::Action(std::bind(BT_Actions::TryFindHouse, _1, searchRadius, searchDegree)),
+					new BT::Action(std::bind(BT_Actions::FindRandomLocation, _1, randomRadius)),
 					new BT::Action(BT_Actions::EnableSpin),
 					new BT::Action(BT_Actions::GoToDestination)
 				})

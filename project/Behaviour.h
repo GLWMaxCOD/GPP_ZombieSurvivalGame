@@ -35,6 +35,7 @@ namespace BT_Actions
 	BT::State CheckItem(Blackboard* pBlackboard);
 	BT::State UseItem(Blackboard* pBlackboard, eItemType type);
 
+	BT::State FindRandomLocation(Blackboard* pBlackboard, float randomRadius);
 	BT::State TryFindHouse(Blackboard* pBlackboard, float searchRadius, int degree);
 	BT::State GetHouseAsTarget(Blackboard* pBlackboard, float maxTravelDistance);
 	BT::State CheckHouses(Blackboard* pBlackboard);
@@ -50,7 +51,8 @@ namespace BT_Conditions
 	bool HasWeapon(Blackboard* pBlackboard);
 	bool InRange(Blackboard* pBlackboard, float maxRange);
 
-	bool SeePurgeZone(Blackboard* pBlackboard);
+	bool InPurgeZone(Blackboard* pBlackboard);
+
 	bool SeeItem(Blackboard* pBlackboard);
 	bool IsTypeOfItem(Blackboard* pBlackboard, eItemType type);
 	bool InvIsFull(Blackboard* pBlackboard);

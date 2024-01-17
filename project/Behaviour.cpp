@@ -77,7 +77,7 @@ namespace BT_Actions
 
 		steering.LinearVelocity = nextTargetPos - agentInfo.Position;
 		steering.LinearVelocity.Normalize();
-		steering.LinearVelocity *= agentInfo.MaxLinearSpeed * 100;
+		steering.LinearVelocity *= agentInfo.MaxLinearSpeed;
 
 		const std::chrono::steady_clock::time_point currentTime{ std::chrono::steady_clock::now() };
 		const std::chrono::duration<float> elapsedSec{ currentTime - timer };
@@ -454,6 +454,10 @@ namespace BT_Actions
 			const Elite::Vector2 pointOnCircle{ playerPos.x + searchRadius * std::cosf(TO_RAD(i)), playerPos.y + searchRadius * std::sinf(TO_RAD(i)) };
 			const Elite::Vector2 target = pInterface->NavMesh_GetClosestPathPoint(pointOnCircle);
 
+			const float worldDimensions{ pInterface->World_GetInfo().Dimensions.x / 2 };
+			if (std::abs(target.x) >= worldDimensions || std::abs(target.y) >= worldDimensions)
+				continue;
+
 			if (pointOnCircle != target)
 			{
 				constexpr float houseOffset{ 5.f };
@@ -472,11 +476,26 @@ namespace BT_Actions
 
 		if (finalTarget == Elite::Vector2{})
 		{
-			finalTarget = Elite::Vector2(randNumRange(-searchRadius, searchRadius),
-										 randNumRange(-searchRadius, searchRadius));
+			return BT::State::Failure;
 		}
 
 		pBlackboard->ChangeData("Target", finalTarget);
+
+		return BT::State::Success;
+	}
+
+	BT::State FindRandomLocation(Blackboard* pBlackboard, float randomRadius)
+	{
+		IExamInterface* pInterface{};
+		pBlackboard->GetData("Interface", pInterface);
+
+		const Elite::Vector2 playerPos{ pInterface->Agent_GetInfo().Position };
+		/*Elite::Vector2 target = Elite::Vector2(playerPos.x + randNumRange(-randomRadius, randomRadius),
+												 playerPos.y + randNumRange(-randomRadius, randomRadius));*/
+
+		const Elite::Vector2 target = Elite::Vector2(0, 0);
+
+		pBlackboard->ChangeData("Target", target);
 
 		return BT::State::Success;
 	}
@@ -580,12 +599,28 @@ namespace BT_Conditions
 		return false;
 	}
 
-	bool SeePurgeZone(Blackboard* pBlackboard)
+	bool InPurgeZone(Blackboard* pBlackboard)
 	{
 		IExamInterface* pInterface{};
 		pBlackboard->GetData("Interface", pInterface);
 
-		return pInterface->GetPurgeZonesInFOV().capacity() > 0;
+		const Elite::Vector2 playerPos{ pInterface->Agent_GetInfo().Position };
+
+		for (const auto purgeZone : pInterface->GetPurgeZonesInFOV())
+		{
+			const Elite::Vector2 purgeCenter{ purgeZone.Center };
+			const float purgeRadius{ purgeZone.Radius };
+
+			const float x{ playerPos.x - purgeCenter.x };
+			const float y{ playerPos.y - purgeCenter.y };
+
+			const float result{ x * x + y * y - purgeRadius * purgeRadius };
+
+			if (result <= 0)
+				return true;
+		}
+
+		return false;
 	}
 
 	bool SeeItem(Blackboard* pBlackboard)

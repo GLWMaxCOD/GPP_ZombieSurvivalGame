@@ -43,6 +43,8 @@ private:
 	void UpdateBlackboard(const SteeringPlugin_Output& steering);
 	BT::BehaviourTree* m_BehaviourTree;
 	Brain* m_pBrain;
+
+	bool m_Running{};
 };
 
 //ENTRY

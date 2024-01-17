@@ -9,9 +9,9 @@ namespace BT
 
 namespace Branch
 {
-	BT::Sequence* PurgeZoneHandling();
-	BT::Sequence* ZombieHandling();
 	BT::Selector* ItemHandling();
+	BT::Sequence* ZombieHandling();
+	BT::Sequence* PurgeZoneHandling();
 	BT::PartialSequence* PickUpHandling();
 	BT::Selector* HouseHandling();
 }
