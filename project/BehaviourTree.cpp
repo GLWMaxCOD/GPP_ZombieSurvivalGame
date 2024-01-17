@@ -18,13 +18,13 @@ Composite::~Composite()
 }
 
 //SELECTOR
-State Selector::Execute(Blackboard* blackboardPtr)
+State Selector::Execute(Blackboard* pBlackboard)
 {
 	// Loop over all children in m_ChildBehaviours
 	for (IBehaviour* pBeh : m_ChildBehaviours)
 	{
 		//Every Child: Execute and store the result in m_CurrentState
-		m_CurrentState = pBeh->Execute(blackboardPtr);
+		m_CurrentState = pBeh->Execute(pBlackboard);
 
 		//Check the currentstate and apply the selector Logic:
 		//if a child returns Success:
@@ -48,13 +48,13 @@ State Selector::Execute(Blackboard* blackboardPtr)
 	return m_CurrentState;
 }
 //SEQUENCE
-State Sequence::Execute(Blackboard* blackboardPtr)
+State Sequence::Execute(Blackboard* pBlackboard)
 {
 	//Loop over all children in m_ChildBehaviours
 	for (IBehaviour* pBeh : m_ChildBehaviours)
 	{
 		//Every Child: Execute and store the result in m_CurrentState
-		m_CurrentState = pBeh->Execute(blackboardPtr);
+		m_CurrentState = pBeh->Execute(pBlackboard);
 
 		//Check the currentstate and apply the sequence Logic:
 		//if a child returns Failed:
@@ -80,11 +80,11 @@ State Sequence::Execute(Blackboard* blackboardPtr)
 	return m_CurrentState;
 }
 
-State PartialSequence::Execute(Blackboard* blackboardPtr)
+State PartialSequence::Execute(Blackboard* pBlackboard)
 {
 	while (m_CurrentBehaviourIndex < m_ChildBehaviours.size())
 	{
-		m_CurrentState = m_ChildBehaviours[m_CurrentBehaviourIndex]->Execute(blackboardPtr);
+		m_CurrentState = m_ChildBehaviours[m_CurrentBehaviourIndex]->Execute(pBlackboard);
 		switch (m_CurrentState)
 		{
 		case State::Failure:
@@ -106,12 +106,12 @@ State PartialSequence::Execute(Blackboard* blackboardPtr)
 #pragma endregion
 
 
-State Conditional::Execute(Blackboard* blackboardPtr)
+State Conditional::Execute(Blackboard* pBlackboard)
 {
 	if (m_ConditionalPtr == nullptr)
 		return State::Failure;
 
-	if (m_ConditionalPtr(blackboardPtr))
+	if (m_ConditionalPtr(pBlackboard))
 	{
 		m_CurrentState = State::Success;
 	}
@@ -122,12 +122,12 @@ State Conditional::Execute(Blackboard* blackboardPtr)
 	return m_CurrentState;
 }
 
-State Action::Execute(Blackboard* blackboardPtr)
+State Action::Execute(Blackboard* pBlackboard)
 {
 	if (m_ActionPtr == nullptr)
 		return State::Failure;
 
-	m_CurrentState = m_ActionPtr(blackboardPtr);
+	m_CurrentState = m_ActionPtr(pBlackboard);
 	return m_CurrentState;
 }
 

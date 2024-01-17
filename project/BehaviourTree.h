@@ -23,7 +23,7 @@ class IBehaviour
 public:
 	IBehaviour() = default;
 	virtual ~IBehaviour() = default;
-	virtual State Execute(Blackboard* blackboardPtr) = 0;
+	virtual State Execute(Blackboard* pBlackboard) = 0;
 
 protected:
 	State m_CurrentState = State::Failure;
@@ -36,7 +36,7 @@ public:
 	explicit Composite(const std::vector<IBehaviour*>& childBehaviours);
 	~Composite() override;
 
-	State Execute(Blackboard* blackboardPtr) override = 0;
+	State Execute(Blackboard* pBlackboard) override = 0;
 
 protected:
 	std::vector<IBehaviour*> m_ChildBehaviours = {};
@@ -49,7 +49,7 @@ public:
 		Composite(std::move(childBehaviours)) {}
 	~Selector() override = default;
 
-	State Execute(Blackboard* blackboardPtr) override;
+	State Execute(Blackboard* pBlackboard) override;
 };
 
 class Sequence : public Composite
@@ -59,7 +59,7 @@ public:
 		Composite(std::move(childBehaviours)) {}
 	~Sequence() override = default;
 
-	State Execute(Blackboard* blackboardPtr) override;
+	State Execute(Blackboard* pBlackboard) override;
 };
 
 class PartialSequence final : public Sequence
@@ -69,7 +69,7 @@ public:
 		: Sequence(std::move(childBehaviours)) {}
 	~PartialSequence() override = default;
 
-	State Execute(Blackboard* blackboardPtr) override;
+	State Execute(Blackboard* pBlackboard) override;
 
 private:
 	unsigned int m_CurrentBehaviourIndex = 0;
@@ -82,7 +82,7 @@ public:
 	explicit Conditional(std::function<bool(Blackboard*)> fp)
 		: m_ConditionalPtr(std::move(fp)) {}
 
-	State Execute(Blackboard* blackboardPtr) override;
+	State Execute(Blackboard* pBlackboard) override;
 
 private:
 	std::function<bool(Blackboard*)> m_ConditionalPtr = nullptr;
@@ -92,7 +92,7 @@ class Action final : public IBehaviour
 {
 public:
 	explicit Action(std::function<State(Blackboard*)> fp) : m_ActionPtr(std::move(fp)) {}
-	State Execute(Blackboard* blackboardPtr) override;
+	State Execute(Blackboard* pBlackboard) override;
 
 private:
 	std::function<State(Blackboard*)> m_ActionPtr = nullptr;
@@ -101,8 +101,8 @@ private:
 class BehaviourTree final
 {
 public:
-	inline explicit BehaviourTree(Blackboard* blackboardPtr, IBehaviour* pRootBehaviour)
-		: m_BlackboardPtr(blackboardPtr),
+	inline explicit BehaviourTree(Blackboard* pBlackboard, IBehaviour* pRootBehaviour)
+		: m_BlackboardPtr(pBlackboard),
 		m_RootBehaviourPtr(pRootBehaviour) {}
 	~BehaviourTree();
 

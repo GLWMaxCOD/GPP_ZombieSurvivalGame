@@ -114,6 +114,44 @@ namespace BT_Actions
 		return BT::State::Success;
 	}
 
+	BT::State FindClosestEdge(Blackboard* pBlackboard, int degree)
+	{
+		IExamInterface* pInterface{};
+		pBlackboard->GetData("Interface", pInterface);
+
+		const Elite::Vector2 playerPos{ pInterface->Agent_GetInfo().Position };
+
+		constexpr float offset{ 3.f };
+		const Elite::Vector2 center{ pInterface->GetPurgeZonesInFOV()[0].Center };
+		const float radius{ pInterface->GetPurgeZonesInFOV()[0].Radius + offset };
+
+		float closestTarget{ FLT_MAX };
+		Elite::Vector2 finalTarget{};
+
+		constexpr int circleDegrees{ 360 };
+
+		if (degree > circleDegrees)
+		{
+			degree = circleDegrees;
+		}
+		for (int i = 0; i <= circleDegrees; i += degree)
+		{
+			const Elite::Vector2 pointOnCircle{ center.x + radius * std::cosf(TO_RAD(i)), center.y + radius * std::sinf(TO_RAD(i)) };
+
+			const float targetDistance{ playerPos.DistanceSquared(pointOnCircle) };
+
+			if (closestTarget > targetDistance)
+			{
+				closestTarget = targetDistance;
+				finalTarget = pointOnCircle;
+			}
+		}
+
+		pBlackboard->ChangeData("Target", finalTarget);
+
+		return BT::State::Success;
+	}
+
 	BT::State SetItemAsTarget(Blackboard* pBlackboard)
 	{
 		IExamInterface* pInterface{};
@@ -421,6 +459,14 @@ namespace BT_Conditions
 		}
 
 		return false;
+	}
+
+	bool SeePurgeZone(Blackboard* pBlackboard)
+	{
+		IExamInterface* pInterface{};
+		pBlackboard->GetData("Interface", pInterface);
+
+		return pInterface->GetPurgeZonesInFOV().capacity() > 0;
 	}
 
 	bool SeeItem(Blackboard* pBlackboard)

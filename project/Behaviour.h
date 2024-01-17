@@ -20,6 +20,7 @@ namespace BT_Actions
 	BT::State SetExpireDate(Blackboard* pBlackboard);
 	BT::State EnableSpin(Blackboard* pBlackboard);
 	BT::State DisableSpin(Blackboard* pBlackboard);
+	BT::State FindClosestEdge(Blackboard* pBlackboard, int degree);
 
 	BT::State SetItemAsTarget(Blackboard* pBlackboard);
 	BT::State DestroyItemOnFloor(Blackboard* pBlackboard);
@@ -39,6 +40,7 @@ namespace BT_Conditions
 	bool CheckTimerLock(Blackboard* pBlackboard, const std::string& timerName);
 	bool CheckTimer(Blackboard* pBlackboard, const std::string& timerName, bool doOnce);
 
+	bool SeePurgeZone(Blackboard* pBlackboard);
 	bool SeeItem(Blackboard* pBlackboard);
 	bool IsTypeOfItem(Blackboard* pBlackboard, eItemType type);
 	bool InvIsFull(Blackboard* pBlackboard);

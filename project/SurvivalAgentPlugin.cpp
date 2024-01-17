@@ -34,6 +34,7 @@ void SurvivalAgentPlugin::Initialize(IBaseInterface* pInterface, PluginInfo& inf
 	Blackboard* pBlackboard{ CreateBlackboard() };
 	m_BehaviourTree = new BT::BehaviourTree(pBlackboard, 
 		new BT::Selector({
+			Branch::PurgeZoneHandling(),
 			Branch::ItemHandling(),
 			Branch::PickUpHandling(),
 			Branch::HouseHandling()
@@ -98,7 +99,7 @@ void SurvivalAgentPlugin::InitGameDebugParams(GameDebugParams& params)
 	params.InfiniteStamina = false;
 	params.SpawnDebugPistol = false;
 	params.SpawnDebugShotgun = false;
-	params.SpawnPurgeZonesOnMiddleClick = false;
+	params.SpawnPurgeZonesOnMiddleClick = true;
 	params.PrintDebugMessages = true;
 	params.ShowDebugItemNames = true;
 	params.Seed = static_cast<int>(time(nullptr)); //-1 = don't set seed. Any other number = fixed seed //TIP: use Seed = int(time(nullptr)) for pure randomness

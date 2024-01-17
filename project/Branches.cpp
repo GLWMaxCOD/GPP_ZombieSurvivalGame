@@ -8,6 +8,17 @@ namespace Branch
 {
 	constexpr float HpThreshold{ 8.f };
 
+	BT::Sequence* PurgeZoneHandling()
+	{
+		constexpr int searchDegree{ 45 };
+		return
+			new BT::Sequence({
+					new BT::Conditional(BT_Conditions::SeePurgeZone),
+					new BT::Action(std::bind(BT_Actions::FindClosestEdge, std::placeholders::_1, searchDegree)),
+					new BT::Action(BT_Actions::GoToDestination)
+			});
+	}
+
 	BT::Selector* ItemHandling()
 	{
 		return
