@@ -102,7 +102,17 @@ namespace BT_Actions
 
 	BT::State EnableSpin(Blackboard* pBlackboard)
 	{
+		IExamInterface* pInterface{};
+		SteeringPlugin_Output steering{};
+
+		pBlackboard->GetData("Interface", pInterface);
+		pBlackboard->GetData("Steering", steering);
+
+		steering.AutoOrient = true;
+		steering.AngularVelocity = pInterface->Agent_GetInfo().MaxAngularSpeed;
+
 		pBlackboard->ChangeData("Spin", true);
+		pBlackboard->ChangeData("Steering", steering);
 
 		return BT::State::Success;
 	}
@@ -150,6 +160,115 @@ namespace BT_Actions
 		pBlackboard->ChangeData("Target", finalTarget);
 
 		return BT::State::Success;
+	}
+
+	BT::State SetZombieTarget(Blackboard* pBlackboard)
+	{
+		IExamInterface* pInterface{};
+		pBlackboard->GetData("Interface", pInterface);
+
+		if (pInterface->GetEnemiesInFOV().capacity() == 0)
+		{
+			return BT::State::Failure;
+		}
+
+		EnemyInfo zombieInfo{};
+		float closestZombie{ FLT_MAX };
+
+		for (const auto zombie : pInterface->GetEnemiesInFOV())
+		{
+			const float distance{ pInterface->Agent_GetInfo().Position.DistanceSquared(zombie.Location) };
+
+			if (closestZombie < distance)
+				continue;
+
+			closestZombie = distance;
+			zombieInfo = zombie;
+		}
+
+		pBlackboard->ChangeData("TargetZombie", zombieInfo);
+
+		return BT::State::Success;
+	}
+
+	BT::State AvoidingZombie(Blackboard* pBlackboard)
+	{
+		IExamInterface* pInterface{};
+		SteeringPlugin_Output steering{};
+
+		pBlackboard->GetData("Interface", pInterface);
+		pBlackboard->GetData("Steering", steering);
+
+		Elite::Vector2 evadeDirection{};
+
+		for (auto zombie : pInterface->GetEnemiesInFOV())
+		{
+			Elite::Vector2 currentPos{ pInterface->Agent_GetInfo().Position };
+			Elite::Vector2 targetPos{ zombie.Location };
+			Elite::Vector2 goingAwayVec{ currentPos - targetPos };
+			float distance = goingAwayVec.MagnitudeSquared();
+
+			evadeDirection += goingAwayVec / distance;
+		}
+
+		steering.LinearVelocity = evadeDirection.GetNormalized() * pInterface->Agent_GetInfo().MaxLinearSpeed;
+
+		pBlackboard->ChangeData("Steering", steering);
+
+		return BT::State::Success;
+	}
+
+	BT::State RotateToZombie(Blackboard* pBlackboard)
+	{
+		IExamInterface* pInterface{};
+		EnemyInfo zombieInfo{};
+		SteeringPlugin_Output steering{};
+
+		pBlackboard->GetData("Interface", pInterface);
+		pBlackboard->GetData("TargetZombie", zombieInfo);
+		pBlackboard->GetData("Steering", steering);
+
+		const float maxAngularVelocity{ pInterface->Agent_GetInfo().MaxAngularSpeed };
+		const float targetAngle{ VectorToOrientation((zombieInfo.Location - pInterface->Agent_GetInfo().Position).GetNormalized()) };
+		const float angleDiff{ targetAngle - pInterface->Agent_GetInfo().Orientation };
+
+		steering.AngularVelocity = angleDiff * maxAngularVelocity;
+
+		pBlackboard->ChangeData("Steering", steering);
+		pBlackboard->ChangeData("angleDiff", angleDiff);
+
+		return BT::State::Success;
+	}
+
+	BT::State ReadyToShoot(Blackboard* pBlackboard, float minAngleDiff)
+	{
+		float angleDiff{};
+
+		pBlackboard->GetData("angleDiff", angleDiff);
+
+		return (std::abs(angleDiff) < minAngleDiff) ? BT::State::Success : BT::State::Failure;
+	}
+
+	BT::State Shoot(Blackboard* pBlackboard, eItemType type)
+	{
+		IExamInterface* pInterface{};
+		Brain* pBrain{};
+
+		pBlackboard->GetData("Interface", pInterface);
+		pBlackboard->GetData("Brain", pBrain);
+
+		const auto item = pBrain->FindLeastValueItem(type);
+
+		if (item->ItemInfo.Value <= 0)
+			return BT::State::Failure;
+
+		if (pInterface->Inventory_UseItem(item->invIndex))
+		{
+			--item->ItemInfo.Value;
+			return BT::State::Success;
+		}
+
+		return BT::State::Failure;
 	}
 
 	BT::State SetItemAsTarget(Blackboard* pBlackboard)
@@ -510,6 +629,32 @@ namespace BT_Conditions
 		return pBrain->EmptyValue();
 	}
 
+	bool SeeZombie(Blackboard* pBlackboard)
+	{
+		IExamInterface* pInterface{};
+		pBlackboard->GetData("Interface", pInterface);
+
+		return pInterface->GetEnemiesInFOV().capacity() > 0;
+	}
+
+	bool HasWeapon(Blackboard* pBlackboard)
+	{
+		return ItemInInv(pBlackboard, eItemType::SHOTGUN) || ItemInInv(pBlackboard, eItemType::PISTOL);
+	}
+
+	bool InRange(Blackboard* pBlackboard, float maxRange)
+	{
+		IExamInterface* pInterface{};
+		EnemyInfo zombieInfo{};
+
+		pBlackboard->GetData("Interface", pInterface);
+		pBlackboard->GetData("TargetZombie", zombieInfo);
+
+		const float dist2{ (zombieInfo.Location - pInterface->Agent_GetInfo().Position).MagnitudeSquared() };
+
+		return dist2 <= maxRange * maxRange;
+	}
+
 	bool ItemInInv(Blackboard* pBlackboard, eItemType type)
 	{
 		Brain* pBrain{};
@@ -580,4 +725,5 @@ namespace BT_Conditions
 
 		return pBrain->HouseToReExplore();
 	}
+
 }

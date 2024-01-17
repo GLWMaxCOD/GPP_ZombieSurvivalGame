@@ -22,9 +22,6 @@ public:
 	void DllInit() override;
 	void DllShutdown() override;
 
-	void InitGameDebugParams(GameDebugParams& params) override;
-	void Update_Debug(float dt) override;
-
 	SteeringPlugin_Output UpdateSteering(float dt) override;
 	void Render(float dt) const override;
 

@@ -4,8 +4,15 @@
 
 std::vector<Brain::InventoryMemory>::iterator Brain::FindLeastValueItem(const eItemType& itemType)
 {
-	std::ranges::partition(m_InventoryMemory,
-		[itemType](const InventoryMemory& memory)->bool { return memory.ItemInfo.Type == itemType; });
+	const auto checkItemType = [itemType](const InventoryMemory& memory)->bool { return memory.ItemInfo.Type == itemType; };
+
+	const auto numItem =
+		std::ranges::count_if(m_InventoryMemory, checkItemType);
+
+	if (numItem <= 1)
+		return std::ranges::find_if(m_InventoryMemory, checkItemType);
+
+	std::ranges::partition(m_InventoryMemory, checkItemType);
 
 	const auto minItem =
 		std::ranges::min_element(m_InventoryMemory,
@@ -30,7 +37,7 @@ bool Brain::IsItemInInv(const eItemType& itemType)
 {
 	return std::ranges::any_of(m_InventoryMemory,
 		[itemType](const InventoryMemory& memory)->bool
-			{ return memory.ItemInfo.Type == itemType; });
+			{ return memory.ItemInfo.Type == itemType && memory.ItemInfo.Value > 0; });
 }
 
 bool Brain::EmptyValue()

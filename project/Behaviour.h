@@ -22,6 +22,12 @@ namespace BT_Actions
 	BT::State DisableSpin(Blackboard* pBlackboard);
 	BT::State FindClosestEdge(Blackboard* pBlackboard, int degree);
 
+	BT::State SetZombieTarget(Blackboard* pBlackboard);
+	BT::State AvoidingZombie(Blackboard* pBlackboard);
+	BT::State RotateToZombie(Blackboard* pBlackboard);
+	BT::State ReadyToShoot(Blackboard* pBlackboard, float minAngleDiff);
+	BT::State Shoot(Blackboard* pBlackboard, eItemType type);
+
 	BT::State SetItemAsTarget(Blackboard* pBlackboard);
 	BT::State DestroyItemOnFloor(Blackboard* pBlackboard);
 	BT::State PickUpItem(Blackboard* pBlackboard);
@@ -39,6 +45,10 @@ namespace BT_Conditions
 {
 	bool CheckTimerLock(Blackboard* pBlackboard, const std::string& timerName);
 	bool CheckTimer(Blackboard* pBlackboard, const std::string& timerName, bool doOnce);
+
+	bool SeeZombie(Blackboard* pBlackboard);
+	bool HasWeapon(Blackboard* pBlackboard);
+	bool InRange(Blackboard* pBlackboard, float maxRange);
 
 	bool SeePurgeZone(Blackboard* pBlackboard);
 	bool SeeItem(Blackboard* pBlackboard);
